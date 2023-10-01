@@ -15,11 +15,11 @@ fn get_reg_name((reg, w_set): (u8, u8)) -> &'static str {
     match (reg, w_set) {
         (0, 0) => "al",
         (0, 1) => "ax",
-        (1, 0) => "cl",
-        (1, 1) => "cx",
-        (2, 0) => "dl",
-        (2, 1) => "dx",
-        (3, 0) => "bl",
+        (0b01, 0) => "cl",
+        (0b01, 1) => "cx",
+        (0b10, 0) => "dl",
+        (0b10, 1) => "dx",
+        (0b11, 0) => "bl",
         (0b11, 1) => "bx",
         (0b100, 0) => "ah",
         (0b100, 1) => "sp",
@@ -49,8 +49,8 @@ pub fn decode(buffer: &[u8]) -> Vec<String> {
 
 fn decode_instruction(high: &u8, low: &u8) -> Option<String> {
     if let Some(Opcode::Mov) = get_opcode(high) {
-        let d_mask: u8 = 0b00000010;
-        let w_mask: u8 = 0b00000001;
+        let d_mask = 0x10;
+        let w_mask = 0x01;
 
         let w_set = w_mask & high;
 
