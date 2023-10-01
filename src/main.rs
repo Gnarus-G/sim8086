@@ -1,8 +1,6 @@
 use std::fs;
 
-use crate::decode::decode;
-
-mod decode;
+use sim8086::decode::decode;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let path = std::env::args()
