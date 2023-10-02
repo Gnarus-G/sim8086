@@ -113,15 +113,16 @@ impl<'source> Scanner<'source> {
 
         let mut get_other_operand = || match mode {
             0b00 => {
-                let eac = EAC::with_no_disp(rm, || self.next_word().unwrap().into());
+                let eac =
+                    EffectiveAddressCalc::with_no_disp(rm, || self.next_word().unwrap().into());
                 Operand::MemoryAddress(eac)
             }
             0b01 => {
-                let eac = EAC::with_disp(rm, self.next_byte().unwrap() as u16);
+                let eac = EffectiveAddressCalc::with_disp(rm, self.next_byte().unwrap() as u16);
                 Operand::MemoryAddress(eac)
             }
             0b10 => {
-                let eac = EAC::with_disp(rm, self.next_word().unwrap().into());
+                let eac = EffectiveAddressCalc::with_disp(rm, self.next_word().unwrap().into());
                 Operand::MemoryAddress(eac)
             }
             0b11 => {
@@ -176,9 +177,6 @@ struct Instruction {
     opcode: Opcode,
     source: Operand,
     destination: Operand,
-    // mode: u8,
-    // rm: u8,
-    // displacement: Option<Displacement>,
 }
 
 impl Display for Instruction {
@@ -189,11 +187,11 @@ impl Display for Instruction {
 
 enum Operand {
     Register(Register),
-    MemoryAddress(EAC),
+    MemoryAddress(EffectiveAddressCalc),
     Immediate(u16),
 }
 
-enum EAC {
+enum EffectiveAddressCalc {
     SingleReg(Register),
     SingleRegPlus(Register, u16),
     Plus(Register, Register),
@@ -201,7 +199,7 @@ enum EAC {
     DirectAddress(u16),
 }
 
-impl EAC {
+impl EffectiveAddressCalc {
     fn with_no_disp<F: FnMut() -> u16>(rm: u8, mut da_value: F) -> Self {
         use Register as R;
         match rm {
@@ -233,14 +231,14 @@ impl EAC {
     }
 }
 
-impl Display for EAC {
+impl Display for EffectiveAddressCalc {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let a = match self {
-            EAC::SingleReg(r) => r.to_string(),
-            EAC::SingleRegPlus(r, c) => format!("{} + {}", r, c),
-            EAC::Plus(ra, rb) => format!("{} + {}", ra, rb),
-            EAC::PlusConstant(ra, rb, c) => format!("{} + {} + {}", ra, rb, c),
-            EAC::DirectAddress(c) => c.to_string(),
+            EffectiveAddressCalc::SingleReg(r) => r.to_string(),
+            EffectiveAddressCalc::SingleRegPlus(r, c) => format!("{} + {}", r, c),
+            EffectiveAddressCalc::Plus(ra, rb) => format!("{} + {}", ra, rb),
+            EffectiveAddressCalc::PlusConstant(ra, rb, c) => format!("{} + {} + {}", ra, rb, c),
+            EffectiveAddressCalc::DirectAddress(c) => c.to_string(),
         };
 
         write!(f, "[{}]", a)
