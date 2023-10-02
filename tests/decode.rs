@@ -17,6 +17,6 @@ fn movs() {
     let buffer = test_with("many_register_mov");
     assert_debug_snapshot!(decode::decode(&buffer));
 
-    // let buffer = test_with("more_movs");
-    // assert_debug_snapshot!(decode::decode(&buffer));
+    let buffer = test_with("more_movs");
+    assert_debug_snapshot!(decode::decode(&buffer));
 }

@@ -10,13 +10,33 @@ struct Scanner<'source> {
 }
 
 struct Word {
-    high: u8,
-    low: u8,
+    lo: u8,
+    hi: u8,
+}
+
+impl Word {
+    fn new(lo: u8, hi: u8) -> Self {
+        Self { lo, hi }
+    }
+}
+
+impl From<Word> for u16 {
+    fn from(val: Word) -> Self {
+        let high_bits = (val.hi as u16) << 8;
+        let low_bits = val.lo as u16;
+        high_bits | low_bits
+    }
+}
+
+impl From<Word> for i16 {
+    fn from(val: Word) -> Self {
+        u16::from(val) as i16
+    }
 }
 
 impl Debug for Word {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:b} {:b}", self.high, self.low)
+        write!(f, "hi({:08b}) lo({:08b})", self.hi, self.lo)
     }
 }
 
@@ -34,15 +54,15 @@ impl<'source> Scanner<'source> {
         let Some([a, b]) = self.input.get(self.offset..self.offset + 2) else {
             return None;
         };
-        Some(Word { high: *a, low: *b })
+        Some(Word { lo: *a, hi: *b })
     }
 
     fn next_byte(&mut self) -> Option<u8> {
-        self.offset = self.read_offset;
-        self.read_offset += 1;
         let Some(a) = self.input.get(self.read_offset) else {
             return None;
         };
+        self.offset = self.read_offset;
+        self.read_offset += 1;
         Some(*a)
     }
 
@@ -50,22 +70,20 @@ impl<'source> Scanner<'source> {
         self.offset = self.read_offset;
         self.read_offset += 2;
 
-        let Some([a, b]) = self.input.get(self.offset..self.read_offset) else {
-            return None;
-        };
-        Some(Word { high: *a, low: *b })
+        self.curr_word()
     }
 
     fn scan(&mut self) {
         while let Some(word) = self.next_word() {
-            let opcode = get_opcode(&word.high).unwrap();
-            // println!("{}", opcode);
+            let opcode = get_opcode(&word.lo).unwrap();
+            // eprintln!("{}", opcode);
             let i = match &opcode {
                 Opcode::Mov(m) => match m {
                     Mov::ImmToReg => self.scan_mov_immediate(opcode),
                     Mov::RM => self.scan_mov_rm(opcode),
                 },
             };
+
             self.instructions.push(i);
         }
     }
@@ -77,46 +95,48 @@ impl<'source> Scanner<'source> {
         let source;
 
         // D
-        let d_mask = 0x10;
-        let reg_is_destination = (d_mask & word.high) == 1;
+        let d_mask = 0x02;
+        let reg_is_destination = (d_mask & word.lo) == d_mask;
 
         // W
-        let w_mask = 0x01;
-        let wide = w_mask & word.high;
+        let w_mask = 1;
+        let wide = w_mask & word.lo;
 
         // MOD
-        let mode = (word.low & 0b11000000) >> 6;
+        let mode = (word.hi & 0b11000000) >> 6;
 
         // REG
-        let reg_code = (word.low & 0b00111000) >> 3;
+        let reg_code = (word.hi & 0b00111000) >> 3;
+
+        // R/M
+        let rm = word.hi & 0x07;
+
+        let mut get_other_operand = || match mode {
+            0b00 => {
+                let eac = EAC::with_no_disp(rm, || self.next_word().unwrap().into());
+                Operand::MemoryAddress(eac)
+            }
+            0b01 => {
+                let eac = EAC::with_disp(rm, self.next_byte().unwrap() as u16);
+                Operand::MemoryAddress(eac)
+            }
+            0b10 => {
+                let eac = EAC::with_disp(rm, self.next_word().unwrap().into());
+                Operand::MemoryAddress(eac)
+            }
+            0b11 => {
+                let rm_reg_code = word.hi & 0b00000111;
+                Operand::Register(Register::try_from(&rm_reg_code, &wide).unwrap())
+            }
+            _ => unreachable!(),
+        };
 
         if reg_is_destination {
             destination = Operand::Register(Register::try_from(&reg_code, &wide).unwrap());
-
-            match mode {
-                0b00 => todo!(),
-                0b01 => todo!(),
-                0b10 => todo!(),
-                0b11 => {
-                    let rm_reg_code = word.low & 0b00000111;
-                    source = Operand::Register(Register::try_from(&rm_reg_code, &wide).unwrap())
-                }
-                _ => unreachable!(),
-            }
+            source = get_other_operand();
         } else {
             source = Operand::Register(Register::try_from(&reg_code, &wide).unwrap());
-
-            match mode {
-                0b00 => todo!(),
-                0b01 => todo!(),
-                0b10 => todo!(),
-                0b11 => {
-                    let rm_reg_code = word.low & 0b00000111;
-                    destination =
-                        Operand::Register(Register::try_from(&rm_reg_code, &wide).unwrap())
-                }
-                _ => unreachable!(),
-            }
+            destination = get_other_operand();
         }
 
         Instruction {
@@ -130,16 +150,18 @@ impl<'source> Scanner<'source> {
         let word = self.curr_word().unwrap();
 
         // W
-        let wide = (0b00001000 & word.high) >> 3;
+        let wide = (0b00001000 & word.lo) >> 3;
 
         // REG
-        let reg_code = 0b00000111 & word.high;
+        let reg_code = 0b00000111 & word.lo;
 
-        let source = if wide == 1 {
-            let data = self.next_byte().expect("a byte after current word");
-            Operand::Immediate(data)
+        let source = if wide == 0 {
+            Operand::Immediate(word.hi as u16)
         } else {
-            Operand::Immediate(word.low)
+            let next_byte = self.next_byte().expect("a byte after current word");
+            let next_word = Word::new(word.hi, next_byte);
+            let value = next_word.into();
+            Operand::Immediate(value)
         };
 
         Instruction {
@@ -167,10 +189,63 @@ impl Display for Instruction {
 
 enum Operand {
     Register(Register),
-    MemoryAddress,
-    Immediate(u8),
+    MemoryAddress(EAC),
+    Immediate(u16),
 }
 
+enum EAC {
+    SingleReg(Register),
+    SingleRegPlus(Register, u16),
+    Plus(Register, Register),
+    PlusConstant(Register, Register, u16),
+    DirectAddress(u16),
+}
+
+impl EAC {
+    fn with_no_disp<F: FnMut() -> u16>(rm: u8, mut da_value: F) -> Self {
+        use Register as R;
+        match rm {
+            0 => Self::Plus(R::BX, R::SI),
+            1 => Self::Plus(R::BX, R::DI),
+            2 => Self::Plus(R::BP, R::SI),
+            3 => Self::Plus(R::BP, R::DI),
+            4 => Self::SingleReg(R::SI),
+            5 => Self::SingleReg(R::DI),
+            6 => Self::DirectAddress(da_value()),
+            7 => Self::SingleReg(R::BX),
+            _ => unreachable!(),
+        }
+    }
+
+    fn with_disp(rm: u8, disp: u16) -> Self {
+        use Register as R;
+        match rm {
+            0 => Self::PlusConstant(R::BX, R::SI, disp),
+            1 => Self::PlusConstant(R::BX, R::DI, disp),
+            2 => Self::PlusConstant(R::BP, R::SI, disp),
+            3 => Self::PlusConstant(R::BP, R::DI, disp),
+            4 => Self::SingleRegPlus(R::SI, disp),
+            5 => Self::SingleRegPlus(R::DI, disp),
+            6 => Self::SingleRegPlus(R::BP, disp),
+            7 => Self::SingleRegPlus(R::BX, disp),
+            _ => unreachable!(),
+        }
+    }
+}
+
+impl Display for EAC {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let a = match self {
+            EAC::SingleReg(r) => r.to_string(),
+            EAC::SingleRegPlus(r, c) => format!("{} + {}", r, c),
+            EAC::Plus(ra, rb) => format!("{} + {}", ra, rb),
+            EAC::PlusConstant(ra, rb, c) => format!("{} + {} + {}", ra, rb, c),
+            EAC::DirectAddress(c) => c.to_string(),
+        };
+
+        write!(f, "[{}]", a)
+    }
+}
 impl Display for Operand {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
@@ -178,7 +253,7 @@ impl Display for Operand {
             "{}",
             match self {
                 Operand::Register(r) => r.to_string(),
-                Operand::MemoryAddress => todo!(),
+                Operand::MemoryAddress(eac) => eac.to_string(),
                 Operand::Immediate(value) => value.to_string(),
             }
         )
@@ -258,7 +333,7 @@ impl Display for Opcode {
 }
 
 fn get_opcode(byte: &u8) -> Option<Opcode> {
-    println!("opcode {:b}", byte);
+    // eprintln!("opcode {:b}", byte);
 
     let first_four_bits = byte >> 4;
     let first_six_bits = byte >> 2;
