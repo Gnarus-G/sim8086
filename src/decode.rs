@@ -1,17 +1,20 @@
 use std::fmt::{Debug, Display};
 
+use crate::mov::{self, Mov};
+
 struct Scanner<'source> {
     input: &'source [u8],
     offset: usize,
+    read_offset: usize,
     instructions: Vec<Instruction>,
 }
 
-struct Word<'w> {
-    high: &'w u8,
-    low: &'w u8,
+struct Word {
+    high: u8,
+    low: u8,
 }
 
-impl<'w> Debug for Word<'w> {
+impl Debug for Word {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{:b} {:b}", self.high, self.low)
     }
@@ -22,81 +25,133 @@ impl<'source> Scanner<'source> {
         Self {
             input,
             offset: 0,
+            read_offset: 0,
             instructions: vec![],
         }
     }
 
-    fn next_word(&mut self) -> Option<Word> {
+    fn curr_word(&self) -> Option<Word> {
         let Some([a, b]) = self.input.get(self.offset..self.offset + 2) else {
             return None;
         };
-        self.offset += 2;
-        Some(Word { high: a, low: b })
+        Some(Word { high: *a, low: *b })
+    }
+
+    fn next_byte(&mut self) -> Option<u8> {
+        self.offset = self.read_offset;
+        self.read_offset += 1;
+        let Some(a) = self.input.get(self.read_offset) else {
+            return None;
+        };
+        Some(*a)
+    }
+
+    fn next_word(&mut self) -> Option<Word> {
+        self.offset = self.read_offset;
+        self.read_offset += 2;
+
+        let Some([a, b]) = self.input.get(self.offset..self.read_offset) else {
+            return None;
+        };
+        Some(Word { high: *a, low: *b })
     }
 
     fn scan(&mut self) {
         while let Some(word) = self.next_word() {
-            let opcode = get_opcode(word.high).unwrap();
+            let opcode = get_opcode(&word.high).unwrap();
+            // println!("{}", opcode);
+            let i = match &opcode {
+                Opcode::Mov(m) => match m {
+                    Mov::ImmToReg => self.scan_mov_immediate(opcode),
+                    Mov::RM => self.scan_mov_rm(opcode),
+                },
+            };
+            self.instructions.push(i);
+        }
+    }
 
-            let destination;
-            let source;
+    fn scan_mov_rm(&mut self, opcode: Opcode) -> Instruction {
+        let word = self.curr_word().unwrap();
 
-            // D
-            let d_mask = 0x10;
-            let reg_is_destination = (d_mask & word.high) == 1;
+        let destination;
+        let source;
 
-            // W
-            let w_mask = 0x01;
-            let wide = w_mask & word.high;
+        // D
+        let d_mask = 0x10;
+        let reg_is_destination = (d_mask & word.high) == 1;
 
-            // MOD
-            let mode = (word.low & 0b11000000) >> 6;
+        // W
+        let w_mask = 0x01;
+        let wide = w_mask & word.high;
 
-            // REG
-            let reg_code = (word.low & 0b00111000) >> 3;
+        // MOD
+        let mode = (word.low & 0b11000000) >> 6;
 
-            if reg_is_destination {
-                destination = Operand::Register(Register::try_from(&reg_code, &wide).unwrap());
+        // REG
+        let reg_code = (word.low & 0b00111000) >> 3;
 
-                match mode {
-                    0b00 => todo!(),
-                    0b01 => todo!(),
-                    0b10 => todo!(),
-                    0b11 => {
-                        let rm_reg_code = word.low & 0b00000111;
-                        source = Operand::Register(Register::try_from(&rm_reg_code, &wide).unwrap())
-                    }
-                    _ => unreachable!(),
+        if reg_is_destination {
+            destination = Operand::Register(Register::try_from(&reg_code, &wide).unwrap());
+
+            match mode {
+                0b00 => todo!(),
+                0b01 => todo!(),
+                0b10 => todo!(),
+                0b11 => {
+                    let rm_reg_code = word.low & 0b00000111;
+                    source = Operand::Register(Register::try_from(&rm_reg_code, &wide).unwrap())
                 }
-            } else {
-                source = Operand::Register(Register::try_from(&reg_code, &wide).unwrap());
-
-                match mode {
-                    0b00 => todo!(),
-                    0b01 => todo!(),
-                    0b10 => todo!(),
-                    0b11 => {
-                        let rm_reg_code = word.low & 0b00000111;
-                        destination =
-                            Operand::Register(Register::try_from(&rm_reg_code, &wide).unwrap())
-                    }
-                    _ => unreachable!(),
-                }
+                _ => unreachable!(),
             }
+        } else {
+            source = Operand::Register(Register::try_from(&reg_code, &wide).unwrap());
 
-            self.instructions.push(Instruction {
-                opcode,
-                wide: wide == 1,
-                source,
-                destination,
-            })
+            match mode {
+                0b00 => todo!(),
+                0b01 => todo!(),
+                0b10 => todo!(),
+                0b11 => {
+                    let rm_reg_code = word.low & 0b00000111;
+                    destination =
+                        Operand::Register(Register::try_from(&rm_reg_code, &wide).unwrap())
+                }
+                _ => unreachable!(),
+            }
+        }
+
+        Instruction {
+            opcode,
+            source,
+            destination,
+        }
+    }
+
+    fn scan_mov_immediate(&mut self, opcode: Opcode) -> Instruction {
+        let word = self.curr_word().unwrap();
+
+        // W
+        let wide = (0b00001000 & word.high) >> 3;
+
+        // REG
+        let reg_code = 0b00000111 & word.high;
+
+        let source = if wide == 1 {
+            let data = self.next_byte().expect("a byte after current word");
+            Operand::Immediate(data)
+        } else {
+            Operand::Immediate(word.low)
+        };
+
+        Instruction {
+            opcode,
+            source,
+            destination: Operand::Register(Register::try_from(&reg_code, &wide).unwrap()),
         }
     }
 }
 
 struct Instruction {
     opcode: Opcode,
-    wide: bool,
     source: Operand,
     destination: Operand,
     // mode: u8,
@@ -188,32 +243,32 @@ impl Register {
     }
 }
 
-enum Dest {
-    RegSource,
-    RegDestination,
-}
-
-enum Displacement {
-    Low(u8),
-    High(u8),
-}
-
-#[derive(Debug, PartialEq)]
+#[derive(Debug)]
 enum Opcode {
-    Mov = 0b100010,
+    Mov(mov::Mov),
 }
 
 impl Display for Opcode {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", format!("{:?}", self).to_lowercase())
+        let s = match self {
+            Opcode::Mov(_) => "mov",
+        };
+        write!(f, "{}", s)
     }
 }
 
 fn get_opcode(byte: &u8) -> Option<Opcode> {
+    println!("opcode {:b}", byte);
+
+    let first_four_bits = byte >> 4;
     let first_six_bits = byte >> 2;
+
     match first_six_bits {
-        0b100010 => Some(Opcode::Mov),
-        _ => None,
+        0b100010 => Some(Opcode::Mov(Mov::RM)),
+        _ => match first_four_bits {
+            0b1011 => Some(Opcode::Mov(Mov::ImmToReg)),
+            _ => None,
+        },
     }
 }
 
