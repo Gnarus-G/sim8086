@@ -118,7 +118,10 @@ impl<'source> Scanner<'source> {
                 Operand::MemoryAddress(eac)
             }
             0b01 => {
-                let eac = EffectiveAddressCalc::with_disp(rm, self.next_byte().unwrap() as u16);
+                let eac = EffectiveAddressCalc::with_disp(
+                    rm,
+                    self.next_byte().unwrap() /* should sign extends so...*/ as i8 as i16,
+                );
                 Operand::MemoryAddress(eac)
             }
             0b10 => {
@@ -193,9 +196,9 @@ enum Operand {
 
 enum EffectiveAddressCalc {
     SingleReg(Register),
-    SingleRegPlus(Register, u16),
+    SingleRegPlus(Register, i16),
     Plus(Register, Register),
-    PlusConstant(Register, Register, u16),
+    PlusConstant(Register, Register, i16),
     DirectAddress(u16),
 }
 
@@ -215,7 +218,7 @@ impl EffectiveAddressCalc {
         }
     }
 
-    fn with_disp(rm: u8, disp: u16) -> Self {
+    fn with_disp(rm: u8, disp: i16) -> Self {
         use Register as R;
         match rm {
             0 => Self::PlusConstant(R::BX, R::SI, disp),
@@ -235,9 +238,21 @@ impl Display for EffectiveAddressCalc {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let a = match self {
             EffectiveAddressCalc::SingleReg(r) => r.to_string(),
-            EffectiveAddressCalc::SingleRegPlus(r, c) => format!("{} + {}", r, c),
+            EffectiveAddressCalc::SingleRegPlus(r, c) => {
+                if c.signum() == -1 {
+                    format!("{} - {}", r, c * -1)
+                } else {
+                    format!("{} + {}", r, c)
+                }
+            }
             EffectiveAddressCalc::Plus(ra, rb) => format!("{} + {}", ra, rb),
-            EffectiveAddressCalc::PlusConstant(ra, rb, c) => format!("{} + {} + {}", ra, rb, c),
+            EffectiveAddressCalc::PlusConstant(ra, rb, c) => {
+                if c.signum() == -1 {
+                    format!("{} + {} - {}", ra, rb, c * -1)
+                } else {
+                    format!("{} + {} + {}", ra, rb, c)
+                }
+            }
             EffectiveAddressCalc::DirectAddress(c) => c.to_string(),
         };
 
