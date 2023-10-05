@@ -9,6 +9,7 @@ struct Scanner<'source> {
     instructions: Vec<Instruction>,
 }
 
+#[derive(Clone, Copy)]
 struct Word {
     lo: u8,
     hi: u8,
@@ -36,7 +37,7 @@ impl From<Word> for i16 {
 
 impl Debug for Word {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "hi({:08b}) lo({:08b})", self.hi, self.lo)
+        write!(f, "lo({:08b}) hi({:08b})", self.lo, self.hi)
     }
 }
 
@@ -75,12 +76,13 @@ impl<'source> Scanner<'source> {
 
     fn scan(&mut self) {
         while let Some(word) = self.next_word() {
+            // println!("word {:?}", word);
             let opcode = get_opcode(&word.lo).unwrap();
-            // eprintln!("{}", opcode);
             let i = match &opcode {
                 Opcode::Mov(m) => match m {
-                    Mov::ImmToReg => self.scan_mov_immediate(opcode),
+                    Mov::ImmToReg => self.scan_mov_immediate_to_register(opcode),
                     Mov::RM => self.scan_mov_rm(opcode),
+                    Mov::ImmToMem => self.scan_mov_immediate_to_memory(opcode),
                 },
             };
 
@@ -150,7 +152,7 @@ impl<'source> Scanner<'source> {
         }
     }
 
-    fn scan_mov_immediate(&mut self, opcode: Opcode) -> Instruction {
+    fn scan_mov_immediate_to_register(&mut self, opcode: Opcode) -> Instruction {
         let word = self.curr_word().unwrap();
 
         // W
@@ -172,6 +174,60 @@ impl<'source> Scanner<'source> {
             opcode,
             source,
             destination: Operand::Register(Register::try_from(&reg_code, &wide).unwrap()),
+        }
+    }
+
+    fn scan_mov_immediate_to_memory(&mut self, opcode: Opcode) -> Instruction {
+        let word = self.curr_word().unwrap();
+
+        // W
+        let w_mask = 1;
+        let wide = w_mask & word.lo;
+
+        // MOD
+        let mode = (word.hi & 0b11000000) >> 6;
+
+        // R/M
+        let rm = word.hi & 0x07;
+
+        let mut get_destination_operand = || match mode {
+            0b00 => {
+                let eac =
+                    EffectiveAddressCalc::with_no_disp(rm, || self.next_byte().unwrap().into());
+                Operand::MemoryAddress(eac)
+            }
+            0b01 => {
+                let eac = EffectiveAddressCalc::with_disp(
+                    rm,
+                    self.next_byte().unwrap() /* should sign extends so...*/ as i8 as i16,
+                );
+                Operand::MemoryAddress(eac)
+            }
+            0b10 => {
+                let eac = EffectiveAddressCalc::with_disp(rm, self.next_word().unwrap().into());
+                Operand::MemoryAddress(eac)
+            }
+            0b11 => {
+                let rm_reg_code = word.hi & 0b00000111;
+                Operand::Register(Register::try_from(&rm_reg_code, &wide).unwrap())
+            }
+            _ => unreachable!(),
+        };
+
+        let destination = get_destination_operand();
+
+        let source = if wide == 1 {
+            let data = self.next_word().unwrap();
+            Operand::Immediate(data.into())
+        } else {
+            let data = self.next_byte().unwrap();
+            Operand::Immediate(data.into())
+        };
+
+        Instruction {
+            opcode,
+            source,
+            destination,
         }
     }
 }
@@ -346,16 +402,18 @@ impl Display for Opcode {
 }
 
 fn get_opcode(byte: &u8) -> Option<Opcode> {
-    // eprintln!("opcode {:b}", byte);
-
     let first_four_bits = byte >> 4;
     let first_six_bits = byte >> 2;
+    let first_seven_bits = byte >> 1;
 
     match first_six_bits {
         0b100010 => Some(Opcode::Mov(Mov::RM)),
         _ => match first_four_bits {
             0b1011 => Some(Opcode::Mov(Mov::ImmToReg)),
-            _ => None,
+            _ => match first_seven_bits {
+                0b1100011 => Some(Opcode::Mov(Mov::ImmToMem)),
+                _ => None,
+            },
         },
     }
 }
