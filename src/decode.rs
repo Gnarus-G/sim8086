@@ -83,6 +83,8 @@ impl<'source> Scanner<'source> {
                     Mov::ImmToReg => self.scan_mov_immediate_to_register(opcode),
                     Mov::RM => self.scan_mov_rm(opcode),
                     Mov::ImmToMem => self.scan_mov_immediate_to_memory(opcode),
+                    Mov::MemToAcc => self.scan_mov_mem_to_acc(opcode),
+                    Mov::AccToMem => self.scan_mov_acc_to_mem(opcode),
                 },
             };
 
@@ -228,6 +230,46 @@ impl<'source> Scanner<'source> {
             opcode,
             source,
             destination,
+        }
+    }
+
+    fn scan_mov_mem_to_acc(&mut self, opcode: Opcode) -> Instruction {
+        let word = self.curr_word().unwrap();
+
+        // W
+        let w_mask = 1;
+        let wide = w_mask & word.lo;
+
+        let addr: u16 = if wide == 1 {
+            Word::new(word.hi, self.next_byte().unwrap()).into()
+        } else {
+            word.hi as u16
+        };
+
+        Instruction {
+            opcode,
+            source: Operand::MemoryAddress(EffectiveAddressCalc::DirectAddress(addr)),
+            destination: Operand::Register(Register::AX),
+        }
+    }
+
+    fn scan_mov_acc_to_mem(&mut self, opcode: Opcode) -> Instruction {
+        let word = self.curr_word().unwrap();
+
+        // W
+        let w_mask = 1;
+        let wide = w_mask & word.lo;
+
+        let addr: u16 = if wide == 1 {
+            Word::new(word.hi, self.next_byte().unwrap()).into()
+        } else {
+            word.hi as u16
+        };
+
+        Instruction {
+            opcode,
+            source: Operand::Register(Register::AX),
+            destination: Operand::MemoryAddress(EffectiveAddressCalc::DirectAddress(addr)),
         }
     }
 }
@@ -412,6 +454,8 @@ fn get_opcode(byte: &u8) -> Option<Opcode> {
             0b1011 => Some(Opcode::Mov(Mov::ImmToReg)),
             _ => match first_seven_bits {
                 0b1100011 => Some(Opcode::Mov(Mov::ImmToMem)),
+                0b1010000 => Some(Opcode::Mov(Mov::MemToAcc)),
+                0b1010001 => Some(Opcode::Mov(Mov::AccToMem)),
                 _ => None,
             },
         },
