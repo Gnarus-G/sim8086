@@ -1,7 +1,6 @@
-use std::process::Command;
+use std::{io::Write, process::Command};
 
-use insta::assert_debug_snapshot;
-use sim8086::decode;
+use insta::assert_display_snapshot;
 
 fn test_with(file: &str) {
     let _ = Command::new("nasm")
@@ -9,9 +8,28 @@ fn test_with(file: &str) {
         .status()
         .unwrap();
 
-    let buffer = std::fs::read(format!("./{}", file)).unwrap();
+    let app_output = assert_cmd::Command::cargo_bin("sim8086")
+        .unwrap()
+        .arg(format!("./{}", file))
+        .output()
+        .map(|out| String::from_utf8(out.stdout).unwrap())
+        .unwrap();
 
-    assert_debug_snapshot!(decode::decode(&buffer));
+    assert_display_snapshot!(app_output);
+
+    let test_file_path = format!("./{}_test.asm", file);
+
+    let mut test_file = std::fs::File::create(&test_file_path).unwrap();
+
+    write!(test_file, "{}", app_output).unwrap();
+
+    let _ = Command::new("nasm").arg(test_file_path).status().unwrap();
+
+    assert_cmd::Command::new("diff")
+        .arg(format!("./{}", file))
+        .arg(format!("./{}_test", file))
+        .assert()
+        .success();
 }
 
 #[test]
