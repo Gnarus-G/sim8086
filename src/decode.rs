@@ -220,10 +220,10 @@ impl<'source> Scanner<'source> {
 
         let source = if wide == 1 {
             let data = self.next_word().unwrap();
-            Operand::Immediate(data.into())
+            Operand::WordImmediate(data.into())
         } else {
             let data = self.next_byte().unwrap();
-            Operand::Immediate(data.into())
+            Operand::ByteImmediate(data)
         };
 
         Instruction {
@@ -290,6 +290,8 @@ enum Operand {
     Register(Register),
     MemoryAddress(EffectiveAddressCalc),
     Immediate(u16),
+    ByteImmediate(u8),
+    WordImmediate(u16),
 }
 
 enum EffectiveAddressCalc {
@@ -366,6 +368,8 @@ impl Display for Operand {
                 Operand::Register(r) => r.to_string(),
                 Operand::MemoryAddress(eac) => eac.to_string(),
                 Operand::Immediate(value) => value.to_string(),
+                Operand::ByteImmediate(b) => format!("byte {}", b),
+                Operand::WordImmediate(w) => format!("word {}", w),
             }
         )
     }
