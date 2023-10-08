@@ -1,6 +1,7 @@
 use std::fmt::{Debug, Display};
 
 use add::Add;
+use cmp::Cmp;
 use mov::Mov;
 use sub::Sub;
 
@@ -43,6 +44,7 @@ enum Opcode {
     Mov(mov::Mov),
     Add(add::Add),
     Sub(sub::Sub),
+    Cmp(cmp::Cmp),
 }
 
 impl Display for Opcode {
@@ -51,6 +53,7 @@ impl Display for Opcode {
             Opcode::Mov(_) => "mov",
             Opcode::Add(_) => "add",
             Opcode::Sub(_) => "sub",
+            Opcode::Cmp(_) => "cmp",
         };
         write!(f, "{}", s)
     }
@@ -68,12 +71,14 @@ impl Opcode {
             0b100010 => Some(Opcode::Mov(Mov::RM)),
             0b000000 => Some(Opcode::Add(Add::RM)),
             0b001010 => Some(Opcode::Sub(Sub::RM)),
+            0b001110 => Some(Opcode::Cmp(Cmp::RM)),
             0b100000 => {
                 let b = (word.hi & 0b00111000) >> 3;
 
                 match b {
                     0b000 => Some(Opcode::Add(Add::ImmToRegOrMem)),
                     0b101 => Some(Opcode::Sub(Sub::ImmToRegOrMem)),
+                    0b111 => Some(Opcode::Cmp(Cmp::ImmToRegOrMem)),
                     _ => todo!(),
                 }
             }
@@ -85,6 +90,7 @@ impl Opcode {
                     0b1010001 => Some(Opcode::Mov(Mov::AccToMem)),
                     0b0000010 => Some(Opcode::Add(Add::ImmToAcc)),
                     0b0010110 => Some(Opcode::Sub(Sub::ImmToAcc)),
+                    0b0011110 => Some(Opcode::Cmp(Cmp::ImmToAcc)),
                     _ => None,
                 },
             },
@@ -115,6 +121,15 @@ mod add {
 mod sub {
     #[derive(Debug)]
     pub enum Sub {
+        RM,
+        ImmToRegOrMem,
+        ImmToAcc,
+    }
+}
+
+mod cmp {
+    #[derive(Debug)]
+    pub enum Cmp {
         RM,
         ImmToRegOrMem,
         ImmToAcc,

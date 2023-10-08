@@ -1,6 +1,6 @@
 use std::fmt::{Debug, Display};
 
-use crate::{add::Add, mov::Mov, sub::Sub, Opcode, Word};
+use crate::{add::Add, cmp::Cmp, mov::Mov, sub::Sub, Opcode, Word};
 
 struct Scanner<'source> {
     input: &'source [u8],
@@ -66,6 +66,13 @@ impl<'source> Scanner<'source> {
                         self.scan_immediate_to_reg_or_memory_with_sign_extension(opcode)
                     }
                     Sub::ImmToAcc => self.scan_immediate_to_acc(opcode),
+                },
+                Opcode::Cmp(c) => match c {
+                    Cmp::RM => self.scan_register_memory_to_from_either(opcode),
+                    Cmp::ImmToRegOrMem => {
+                        self.scan_immediate_to_reg_or_memory_with_sign_extension(opcode)
+                    }
+                    Cmp::ImmToAcc => self.scan_immediate_to_acc(opcode),
                 },
             };
 
@@ -176,7 +183,7 @@ impl<'source> Scanner<'source> {
         let mut get_destination_operand = || match mode {
             0b00 => {
                 let eac =
-                    EffectiveAddressCalc::with_no_disp(rm, || self.next_byte().unwrap().into());
+                    EffectiveAddressCalc::with_no_disp(rm, || self.next_word().unwrap().into());
                 Operand::MemoryAddress(eac)
             }
             0b01 => {
@@ -298,7 +305,7 @@ impl<'source> Scanner<'source> {
         let mut get_destination_operand = || match mode {
             0b00 => {
                 let eac =
-                    EffectiveAddressCalc::with_no_disp(rm, || self.next_byte().unwrap().into());
+                    EffectiveAddressCalc::with_no_disp(rm, || self.next_word().unwrap().into());
                 Operand::MemoryAddress(eac)
             }
             0b01 => {
