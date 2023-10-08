@@ -74,6 +74,7 @@ impl<'source> Scanner<'source> {
                     }
                     Cmp::ImmToAcc => self.scan_immediate_to_acc(opcode),
                 },
+                Opcode::J(_) => self.scan_jump(opcode),
             };
 
             self.instructions.push(i);
@@ -137,7 +138,7 @@ impl<'source> Scanner<'source> {
 
         Instruction {
             opcode,
-            source,
+            source: Some(source),
             destination,
         }
     }
@@ -162,7 +163,7 @@ impl<'source> Scanner<'source> {
 
         Instruction {
             opcode,
-            source,
+            source: Some(source),
             destination: Operand::Register(Register::try_from(&reg_code, &wide).unwrap()),
         }
     }
@@ -216,7 +217,7 @@ impl<'source> Scanner<'source> {
 
         Instruction {
             opcode,
-            source,
+            source: Some(source),
             destination,
         }
     }
@@ -236,7 +237,9 @@ impl<'source> Scanner<'source> {
 
         Instruction {
             opcode,
-            source: Operand::MemoryAddress(EffectiveAddressCalc::DirectAddress(addr)),
+            source: Some(Operand::MemoryAddress(EffectiveAddressCalc::DirectAddress(
+                addr,
+            ))),
             destination: Operand::Register(Register::AX),
         }
     }
@@ -256,7 +259,7 @@ impl<'source> Scanner<'source> {
 
         Instruction {
             opcode,
-            source: Operand::Register(Register::AX),
+            source: Some(Operand::Register(Register::AX)),
             destination: Operand::MemoryAddress(EffectiveAddressCalc::DirectAddress(addr)),
         }
     }
@@ -278,7 +281,7 @@ impl<'source> Scanner<'source> {
 
         Instruction {
             opcode,
-            source: Operand::Immediate(imm),
+            source: Some(Operand::Immediate(imm)),
             destination: Operand::Register(reg),
         }
     }
@@ -345,21 +348,35 @@ impl<'source> Scanner<'source> {
 
         Instruction {
             opcode,
-            source,
+            source: Some(source),
             destination,
+        }
+    }
+
+    fn scan_jump(&mut self, opcode: Opcode) -> Instruction {
+        let word = self.curr_word().unwrap();
+        let inc = word.hi as i8;
+
+        Instruction {
+            opcode,
+            source: None,
+            destination: Operand::InstPtrIncrement(inc),
         }
     }
 }
 
 struct Instruction {
     opcode: Opcode,
-    source: Operand,
+    source: Option<Operand>,
     destination: Operand,
 }
 
 impl Display for Instruction {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{} {}, {}", self.opcode, self.destination, self.source)
+        match &self.source {
+            Some(source) => write!(f, "{} {}, {}", self.opcode, self.destination, source),
+            None => write!(f, "{} {}", self.opcode, self.destination),
+        }
     }
 }
 
@@ -369,6 +386,7 @@ enum Operand {
     Immediate(u16),
     ByteImmediate(u8),
     WordImmediate(u16),
+    InstPtrIncrement(i8),
 }
 
 enum EffectiveAddressCalc {
@@ -447,6 +465,7 @@ impl Display for Operand {
                 Operand::Immediate(value) => value.to_string(),
                 Operand::ByteImmediate(b) => format!("byte {}", b),
                 Operand::WordImmediate(w) => format!("word {}", w),
+                Operand::InstPtrIncrement(p) => format!("label; {}", p),
             }
         )
     }

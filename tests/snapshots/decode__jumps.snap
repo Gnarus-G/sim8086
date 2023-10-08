@@ -1,0 +1,32 @@
+---
+source: tests/decode.rs
+description: jnz
+expression: app_output
+---
+bits 16
+
+jne label; 2
+jne label; -4
+jne label; -6
+jne label; -4
+je label; -2
+jl label; -4
+jle label; -6
+jb label; -8
+jbe label; -10
+jp label; -12
+jo label; -14
+js label; -16
+jne label; -18
+jnl label; -20
+jg label; -22
+jnb label; -24
+ja label; -26
+jnp label; -28
+jno label; -30
+jns label; -32
+loop label; -34
+loopz label; -36
+loopnz label; -38
+jcxz label; -40
+

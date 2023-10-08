@@ -49,3 +49,24 @@ fn movs() {
 fn add_sub_cmp() {
     test_with!("add_sub_cmp");
 }
+
+#[test]
+fn jumps() {
+    let file = "jnz";
+
+    let _ = Command::new("nasm")
+        .arg(format!("./{}.asm", file))
+        .status()
+        .unwrap();
+
+    let app_output = assert_cmd::Command::cargo_bin("sim8086")
+        .unwrap()
+        .arg(format!("./{}", file))
+        .output()
+        .map(|out| String::from_utf8(out.stdout).unwrap())
+        .unwrap();
+
+    insta::with_settings!({ description => file }, {
+        assert_display_snapshot!(app_output);
+    })
+}

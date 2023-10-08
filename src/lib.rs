@@ -5,6 +5,8 @@ use cmp::Cmp;
 use mov::Mov;
 use sub::Sub;
 
+use crate::jump::J;
+
 pub mod decode;
 
 #[derive(Clone, Copy)]
@@ -45,6 +47,7 @@ enum Opcode {
     Add(add::Add),
     Sub(sub::Sub),
     Cmp(cmp::Cmp),
+    J(jump::J),
 }
 
 impl Display for Opcode {
@@ -54,6 +57,7 @@ impl Display for Opcode {
             Opcode::Add(_) => "add",
             Opcode::Sub(_) => "sub",
             Opcode::Cmp(_) => "cmp",
+            Opcode::J(j) => return write!(f, "{}", format!("{:?}", j).to_lowercase()),
         };
         write!(f, "{}", s)
     }
@@ -62,10 +66,9 @@ impl Display for Opcode {
 impl Opcode {
     fn try_from(word: &Word) -> Option<Opcode> {
         // println!("word {:?}", word);
-        let byte = word.lo;
-        let first_four_bits = byte >> 4;
-        let first_six_bits = byte >> 2;
-        let first_seven_bits = byte >> 1;
+        let first_four_bits = word.lo >> 4;
+        let first_six_bits = word.lo >> 2;
+        let first_seven_bits = word.lo >> 1;
 
         match first_six_bits {
             0b100010 => Some(Opcode::Mov(Mov::RM)),
@@ -91,7 +94,29 @@ impl Opcode {
                     0b0000010 => Some(Opcode::Add(Add::ImmToAcc)),
                     0b0010110 => Some(Opcode::Sub(Sub::ImmToAcc)),
                     0b0011110 => Some(Opcode::Cmp(Cmp::ImmToAcc)),
-                    _ => None,
+                    _ => match word.lo {
+                        0b01110101 => Some(Opcode::J(J::Jne)),
+                        0b01110100 => Some(Opcode::J(J::Je)),
+                        0b01111100 => Some(Opcode::J(J::Jl)),
+                        0b01111110 => Some(Opcode::J(J::Jle)),
+                        0b01110010 => Some(Opcode::J(J::Jb)),
+                        0b01110110 => Some(Opcode::J(J::Jbe)),
+                        0b01111010 => Some(Opcode::J(J::Jp)),
+                        0b01110000 => Some(Opcode::J(J::Jo)),
+                        0b01111000 => Some(Opcode::J(J::Js)),
+                        0b01111101 => Some(Opcode::J(J::Jnl)),
+                        0b01111111 => Some(Opcode::J(J::Jg)),
+                        0b01110011 => Some(Opcode::J(J::Jnb)),
+                        0b01110111 => Some(Opcode::J(J::Ja)),
+                        0b01111011 => Some(Opcode::J(J::Jnp)),
+                        0b01110001 => Some(Opcode::J(J::Jno)),
+                        0b01111001 => Some(Opcode::J(J::Jns)),
+                        0b11100010 => Some(Opcode::J(J::Loop)),
+                        0b11100001 => Some(Opcode::J(J::Loopz)),
+                        0b11100000 => Some(Opcode::J(J::Loopnz)),
+                        0b11100011 => Some(Opcode::J(J::Jcxz)),
+                        _ => None,
+                    },
                 },
             },
         }
@@ -133,5 +158,32 @@ mod cmp {
         RM,
         ImmToRegOrMem,
         ImmToAcc,
+    }
+}
+
+mod jump {
+
+    #[derive(Debug)]
+    pub enum J {
+        Je,
+        Jl,
+        Jle,
+        Jb,
+        Jbe,
+        Jp,
+        Jo,
+        Js,
+        Jne, // Jnz
+        Jnl,
+        Jg,
+        Jnb,
+        Ja,
+        Jnp,
+        Jno,
+        Jns,
+        Loop,
+        Loopz,
+        Loopnz,
+        Jcxz,
     }
 }
