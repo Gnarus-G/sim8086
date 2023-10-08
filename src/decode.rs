@@ -1,47 +1,12 @@
 use std::fmt::{Debug, Display};
 
-use crate::{
-    add::{self, Add},
-    mov::{self, Mov},
-};
+use crate::{add::Add, mov::Mov, sub::Sub, Opcode, Word};
 
 struct Scanner<'source> {
     input: &'source [u8],
     offset: usize,
     read_offset: usize,
     instructions: Vec<Instruction>,
-}
-
-#[derive(Clone, Copy)]
-struct Word {
-    lo: u8,
-    hi: u8,
-}
-
-impl Word {
-    fn new(lo: u8, hi: u8) -> Self {
-        Self { lo, hi }
-    }
-}
-
-impl From<Word> for u16 {
-    fn from(val: Word) -> Self {
-        let high_bits = (val.hi as u16) << 8;
-        let low_bits = val.lo as u16;
-        high_bits | low_bits
-    }
-}
-
-impl From<Word> for i16 {
-    fn from(val: Word) -> Self {
-        u16::from(val) as i16
-    }
-}
-
-impl Debug for Word {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "lo({:08b}) hi({:08b})", self.lo, self.hi)
-    }
 }
 
 impl<'source> Scanner<'source> {
@@ -79,8 +44,7 @@ impl<'source> Scanner<'source> {
 
     fn scan(&mut self) {
         while let Some(word) = self.next_word() {
-            // println!("word {:?}", word);
-            let opcode = get_opcode(&word.lo).unwrap();
+            let opcode = Opcode::try_from(&word).unwrap();
             let i = match &opcode {
                 Opcode::Mov(m) => match m {
                     Mov::ImmToReg => self.scan_mov_immediate_to_register(opcode),
@@ -95,6 +59,13 @@ impl<'source> Scanner<'source> {
                         self.scan_immediate_to_reg_or_memory_with_sign_extension(opcode)
                     }
                     Add::ImmToAcc => self.scan_immediate_to_acc(opcode),
+                },
+                Opcode::Sub(s) => match s {
+                    Sub::RM => self.scan_register_memory_to_from_either(opcode),
+                    Sub::ImmToRegOrMem => {
+                        self.scan_immediate_to_reg_or_memory_with_sign_extension(opcode)
+                    }
+                    Sub::ImmToAcc => self.scan_immediate_to_acc(opcode),
                 },
             };
 
@@ -527,44 +498,6 @@ impl Register {
         };
 
         Some(r)
-    }
-}
-
-#[derive(Debug)]
-enum Opcode {
-    Mov(mov::Mov),
-    Add(add::Add),
-}
-
-impl Display for Opcode {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let s = match self {
-            Opcode::Mov(_) => "mov",
-            Opcode::Add(_) => "add",
-        };
-        write!(f, "{}", s)
-    }
-}
-
-fn get_opcode(byte: &u8) -> Option<Opcode> {
-    let first_four_bits = byte >> 4;
-    let first_six_bits = byte >> 2;
-    let first_seven_bits = byte >> 1;
-
-    match first_six_bits {
-        0b100010 => Some(Opcode::Mov(Mov::RM)),
-        0b000000 => Some(Opcode::Add(Add::RM)),
-        0b100000 => Some(Opcode::Add(Add::ImmToRegOrMem)),
-        _ => match first_four_bits {
-            0b1011 => Some(Opcode::Mov(Mov::ImmToReg)),
-            _ => match first_seven_bits {
-                0b1100011 => Some(Opcode::Mov(Mov::ImmToRegOrMem)),
-                0b1010000 => Some(Opcode::Mov(Mov::MemToAcc)),
-                0b1010001 => Some(Opcode::Mov(Mov::AccToMem)),
-                0b0000010 => Some(Opcode::Add(Add::ImmToAcc)),
-                _ => None,
-            },
-        },
     }
 }
 

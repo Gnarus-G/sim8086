@@ -15,8 +15,6 @@ fn test_with(file: &str) {
         .map(|out| String::from_utf8(out.stdout).unwrap())
         .unwrap();
 
-    assert_display_snapshot!(app_output);
-
     let test_file_path = format!("./{}_test.asm", file);
 
     let mut test_file = std::fs::File::create(&test_file_path).unwrap();
@@ -30,6 +28,8 @@ fn test_with(file: &str) {
         .arg(format!("./{}_test", file))
         .assert()
         .success();
+
+    assert_display_snapshot!(app_output);
 }
 
 #[test]
@@ -39,4 +39,9 @@ fn movs() {
     test_with("more_movs");
 
     test_with("challenge_movs");
+}
+
+#[test]
+fn add_sub_cmp() {
+    test_with("add_sub_cmp");
 }
