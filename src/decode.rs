@@ -261,16 +261,18 @@ impl<'source> Scanner<'source> {
         let w_mask = 1;
         let wide = w_mask & word.lo;
 
-        let imm: u16 = if wide == 1 {
-            Word::new(word.hi, self.next_byte().unwrap()).into()
+        let (imm, reg) = if wide == 1 {
+            let imm = Word::new(word.hi, self.next_byte().unwrap()).into();
+            (imm, Register::AX)
         } else {
-            word.hi as u16
+            let imm = word.hi as u16;
+            (imm, Register::AL)
         };
 
         Instruction {
             opcode,
             source: Operand::Immediate(imm),
-            destination: Operand::Register(Register::AX),
+            destination: Operand::Register(reg),
         }
     }
 
@@ -322,15 +324,15 @@ impl<'source> Scanner<'source> {
         let source = match (sign_extend, wide) {
             (0, 1) => {
                 let data = self.next_word().unwrap();
-                Operand::Immediate(data.into())
+                Operand::WordImmediate(data.into())
             }
             (1, 1) => {
                 let data = self.next_byte().unwrap();
-                Operand::Immediate(data as i8 as i16 as u16) // casts are for sign extending
+                Operand::WordImmediate(data as i8 as i16 as u16) // casts are for sign extending
             }
             _ => {
                 let data = self.next_byte().unwrap();
-                Operand::Immediate(data as u16)
+                Operand::ByteImmediate(data)
             }
         };
 

@@ -1,0 +1,56 @@
+---
+source: tests/decode.rs
+description: add_sub_cmp
+expression: app_output
+---
+bits 16
+
+add bx, [bx + si]
+add bx, [bp + 0]
+add si, word 2
+add bp, word 2
+add cx, word 8
+add bx, [bp + 0]
+add cx, [bx + 2]
+add bh, [bp + si + 4]
+add di, [bp + di + 6]
+add [bx + si], bx
+add [bp + 0], bx
+add [bp + 0], bx
+add [bx + 2], cx
+add [bp + si + 4], bh
+add [bp + di + 6], di
+add [bx], byte 34
+add [bp + si + 1000], word 29
+add ax, [bp + 0]
+add al, [bx + si]
+add ax, bx
+add al, ah
+add ax, 1000
+add al, 226
+add al, 9
+sub bx, [bx + si]
+sub bx, [bp + 0]
+sub si, word 2
+sub bp, word 2
+sub cx, word 8
+sub bx, [bp + 0]
+sub cx, [bx + 2]
+sub bh, [bp + si + 4]
+sub di, [bp + di + 6]
+sub [bx + si], bx
+sub [bp + 0], bx
+sub [bp + 0], bx
+sub [bx + 2], cx
+sub [bp + si + 4], bh
+sub [bp + di + 6], di
+sub [bx], byte 34
+sub [bx + di], word 29
+sub ax, [bp + 0]
+sub al, [bx + si]
+sub ax, bx
+sub al, ah
+sub ax, 1000
+sub al, 226
+sub al, 9
+
