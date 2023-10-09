@@ -1,18 +1,38 @@
-use std::fs;
+use clap::Parser;
+use sim8086::{
+    decode::{decode, Scanner},
+    exec::Executor,
+};
+use std::{fs, path::PathBuf};
 
-use sim8086::decode::decode;
+#[derive(Parser)]
+#[command(author, version, about)]
+struct Cli {
+    // path to a binary file
+    path: PathBuf,
+
+    #[arg(short, long)]
+    exec: bool,
+}
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let path = std::env::args()
-        .nth(1)
-        .expect("need a path to a binary file");
+    let cli = Cli::parse();
 
-    let buffer = fs::read(path)?;
+    let buffer = fs::read(cli.path)?;
 
-    println!("bits 16\n");
+    if cli.exec {
+        let mut scanner = Scanner::new(&buffer);
+        scanner.scan();
+        let mut exe = Executor::new();
+        exe.execute(&scanner.instructions);
 
-    for i in decode(&buffer) {
-        println!("{}", i);
+        println!("{:#?}", exe.registers);
+    } else {
+        println!("bits 16\n");
+
+        for i in decode(&buffer) {
+            println!("{}", i);
+        }
     }
 
     Ok(())

@@ -1,12 +1,13 @@
-use std::fmt::{Debug, Display};
+use crate::{
+    add::Add, cmp::Cmp, mov::Mov, sub::Sub, EffectiveAddressCalc, Instruction, Opcode, Operand,
+    Register, Word,
+};
 
-use crate::{add::Add, cmp::Cmp, mov::Mov, sub::Sub, Opcode, Word};
-
-struct Scanner<'source> {
+pub struct Scanner<'source> {
     input: &'source [u8],
     offset: usize,
     read_offset: usize,
-    instructions: Vec<Instruction>,
+    pub instructions: Vec<Instruction>,
 }
 
 impl<'source> Scanner<'source> {
@@ -42,7 +43,7 @@ impl<'source> Scanner<'source> {
         self.curr_word()
     }
 
-    fn scan(&mut self) {
+    pub fn scan(&mut self) {
         while let Some(word) = self.next_word() {
             let opcode = Opcode::try_from(&word).unwrap();
             let i = match &opcode {
@@ -362,170 +363,6 @@ impl<'source> Scanner<'source> {
             source: None,
             destination: Operand::InstPtrIncrement(inc),
         }
-    }
-}
-
-struct Instruction {
-    opcode: Opcode,
-    source: Option<Operand>,
-    destination: Operand,
-}
-
-impl Display for Instruction {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match &self.source {
-            Some(source) => write!(f, "{} {}, {}", self.opcode, self.destination, source),
-            None => write!(f, "{} {}", self.opcode, self.destination),
-        }
-    }
-}
-
-enum Operand {
-    Register(Register),
-    MemoryAddress(EffectiveAddressCalc),
-    Immediate(u16),
-    ByteImmediate(u8),
-    WordImmediate(u16),
-    InstPtrIncrement(i8),
-}
-
-enum EffectiveAddressCalc {
-    SingleReg(Register),
-    SingleRegPlus(Register, i16),
-    Plus(Register, Register),
-    PlusConstant(Register, Register, i16),
-    DirectAddress(u16),
-}
-
-impl EffectiveAddressCalc {
-    fn with_no_disp<F: FnMut() -> u16>(rm: u8, mut da_value: F) -> Self {
-        use Register as R;
-        match rm {
-            0 => Self::Plus(R::BX, R::SI),
-            1 => Self::Plus(R::BX, R::DI),
-            2 => Self::Plus(R::BP, R::SI),
-            3 => Self::Plus(R::BP, R::DI),
-            4 => Self::SingleReg(R::SI),
-            5 => Self::SingleReg(R::DI),
-            6 => Self::DirectAddress(da_value()),
-            7 => Self::SingleReg(R::BX),
-            _ => unreachable!(),
-        }
-    }
-
-    fn with_disp(rm: u8, disp: i16) -> Self {
-        use Register as R;
-        match rm {
-            0 => Self::PlusConstant(R::BX, R::SI, disp),
-            1 => Self::PlusConstant(R::BX, R::DI, disp),
-            2 => Self::PlusConstant(R::BP, R::SI, disp),
-            3 => Self::PlusConstant(R::BP, R::DI, disp),
-            4 => Self::SingleRegPlus(R::SI, disp),
-            5 => Self::SingleRegPlus(R::DI, disp),
-            6 => Self::SingleRegPlus(R::BP, disp),
-            7 => Self::SingleRegPlus(R::BX, disp),
-            _ => unreachable!(),
-        }
-    }
-}
-
-impl Display for EffectiveAddressCalc {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let a = match self {
-            EffectiveAddressCalc::SingleReg(r) => r.to_string(),
-            EffectiveAddressCalc::SingleRegPlus(r, c) => {
-                if c.signum() == -1 {
-                    format!("{} - {}", r, c * -1)
-                } else {
-                    format!("{} + {}", r, c)
-                }
-            }
-            EffectiveAddressCalc::Plus(ra, rb) => format!("{} + {}", ra, rb),
-            EffectiveAddressCalc::PlusConstant(ra, rb, c) => {
-                if c.signum() == -1 {
-                    format!("{} + {} - {}", ra, rb, c * -1)
-                } else {
-                    format!("{} + {} + {}", ra, rb, c)
-                }
-            }
-            EffectiveAddressCalc::DirectAddress(c) => c.to_string(),
-        };
-
-        write!(f, "[{}]", a)
-    }
-}
-impl Display for Operand {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "{}",
-            match self {
-                Operand::Register(r) => r.to_string(),
-                Operand::MemoryAddress(eac) => eac.to_string(),
-                Operand::Immediate(value) => value.to_string(),
-                Operand::ByteImmediate(b) => format!("byte {}", b),
-                Operand::WordImmediate(w) => format!("word {}", w),
-                Operand::InstPtrIncrement(p) => format!("label; {}", p),
-            }
-        )
-    }
-}
-
-impl Instruction {}
-
-#[derive(Debug)]
-enum Register {
-    // low
-    AL,
-    BL,
-    CL,
-    DL,
-    // high
-    AH,
-    BH,
-    CH,
-    DH,
-    // wide
-    AX,
-    BX,
-    CX,
-    DX,
-    // others
-    SI,
-    DI,
-    SP,
-    BP,
-}
-
-impl Display for Register {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", format!("{:?}", self).to_lowercase())
-    }
-}
-
-impl Register {
-    fn try_from(code: &u8, wide: &u8) -> Option<Self> {
-        let r = match (code, wide) {
-            (0, 0) => Register::AL,
-            (0, 1) => Register::AX,
-            (0b01, 0) => Register::CL,
-            (0b01, 1) => Register::CX,
-            (0b10, 0) => Register::DL,
-            (0b10, 1) => Register::DX,
-            (0b11, 0) => Register::BL,
-            (0b11, 1) => Register::BX,
-            (0b100, 0) => Register::AH,
-            (0b100, 1) => Register::SP,
-            (0b101, 0) => Register::CH,
-            (0b101, 1) => Register::BP,
-            (0b110, 0) => Register::DH,
-            (0b110, 1) => Register::SI,
-            (0b111, 0) => Register::BH,
-            (0b111, 1) => Register::DI,
-            _ => todo!(),
-        };
-
-        Some(r)
     }
 }
 
