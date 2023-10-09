@@ -1,0 +1,16 @@
+---
+source: tests/exec.rs
+description: register_movs
+expression: app_output
+---
+Registers {
+    ax: 0x0004 (4),
+    bx: 0x0003 (3),
+    cx: 0x0002 (2),
+    dx: 0x0001 (1),
+    sp: 0x0001 (1),
+    bp: 0x0002 (2),
+    si: 0x0003 (3),
+    di: 0x0004 (4),
+}
+
