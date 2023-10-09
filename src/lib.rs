@@ -184,6 +184,12 @@ impl Word {
     }
 }
 
+impl From<&mut Word> for u16 {
+    fn from(value: &mut Word) -> Self {
+        u16::from(*value)
+    }
+}
+
 impl From<Word> for u16 {
     fn from(val: Word) -> Self {
         let high_bits = (val.hi as u16) << 8;
