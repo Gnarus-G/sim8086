@@ -12,9 +12,6 @@ Registers {
     bp: 0x0000 (0),
     si: 0x0000 (0),
     di: 0x0000 (0),
-    flags: Flags {
-        sf: false,
-        zf: true,
-    },
+    flags: Z,
 }
 

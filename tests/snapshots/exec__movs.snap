@@ -12,9 +12,6 @@ Registers {
     bp: 0x0006 (6),
     si: 0x0007 (7),
     di: 0x0008 (8),
-    flags: Flags {
-        sf: false,
-        zf: false,
-    },
+    flags: ,
 }
 

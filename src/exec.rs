@@ -1,3 +1,5 @@
+use std::fmt::Debug;
+
 use crate::{Instruction, Opcode, Operand, Register, Word};
 
 pub struct Executor {
@@ -192,8 +194,22 @@ impl Registers {
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Default)]
 struct Flags {
     sign: bool,
     zero: bool,
+}
+
+impl Debug for Flags {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut display = |string, is_true| -> Result<(), std::fmt::Error> {
+            if is_true {
+                f.write_str(string)?;
+            }
+            Ok(())
+        };
+
+        display("S", self.sign)?;
+        display("Z", self.zero)
+    }
 }
