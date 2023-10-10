@@ -10,15 +10,97 @@ impl Executor {
             registers: Registers::new(),
         }
     }
+
+    fn eval_operand(&mut self, operand: &Operand) -> u16 {
+        let value = match operand {
+            Operand::Immediate(imm) => *imm,
+            Operand::Register(reg) => self.registers.get_reg(reg).into(),
+            Operand::MemoryAddress(_) => todo!(),
+            Operand::ByteImmediate(_) => todo!(),
+            Operand::WordImmediate(imm) => *imm,
+            Operand::InstPtrIncrement(_) => todo!(),
+        };
+
+        value
+    }
+
     pub fn execute(&mut self, instructions: &[Instruction]) {
         for i in instructions {
             match &i.opcode {
                 Opcode::Mov(_) => self.execute_mov(i),
-                Opcode::Add(_) => todo!(),
-                Opcode::Sub(_) => todo!(),
-                Opcode::Cmp(_) => todo!(),
+                Opcode::Add(_) => self.execute_add(i),
+                Opcode::Sub(_) => self.execute_sub(i),
+                Opcode::Cmp(_) => self.execute_cmp(i),
                 Opcode::J(_) => todo!(),
             }
+        }
+    }
+
+    fn execute_add(&mut self, i: &Instruction) {
+        let source = i.source.as_ref().expect("add to have a source operand");
+        let source_value = self.eval_operand(source);
+
+        match &i.destination {
+            Operand::Register(reg) => {
+                let reg_value = self.registers.get_reg(reg);
+                let dest: u16 = reg_value.into();
+                let result = dest + source_value;
+                self.registers.set(reg, result);
+                let msb_is_1 = (0x8000 & result) != 0;
+
+                self.registers.flags.sign = msb_is_1;
+                self.registers.flags.zero = result == 0;
+            }
+            Operand::MemoryAddress(_) => todo!(),
+            Operand::Immediate(_) => todo!(),
+            Operand::ByteImmediate(_) => todo!(),
+            Operand::WordImmediate(_) => todo!(),
+            Operand::InstPtrIncrement(_) => todo!(),
+        }
+    }
+
+    fn execute_sub(&mut self, i: &Instruction) {
+        let source = i.source.as_ref().expect("sub to have a source operand");
+        let source_value = self.eval_operand(source);
+
+        match &i.destination {
+            Operand::Register(reg) => {
+                let reg_value = self.registers.get_reg(reg);
+                let dest: u16 = reg_value.into();
+                let result = dest - source_value;
+                self.registers.set(reg, result);
+                let msb_is_1 = (0x8000 & result) != 0;
+
+                self.registers.flags.sign = msb_is_1;
+                self.registers.flags.zero = result == 0;
+            }
+            Operand::MemoryAddress(_) => todo!(),
+            Operand::Immediate(_) => todo!(),
+            Operand::ByteImmediate(_) => todo!(),
+            Operand::WordImmediate(_) => todo!(),
+            Operand::InstPtrIncrement(_) => todo!(),
+        }
+    }
+
+    fn execute_cmp(&mut self, i: &Instruction) {
+        let source = i.source.as_ref().expect("sub to have a source operand");
+        let source_value = self.eval_operand(source);
+
+        match &i.destination {
+            Operand::Register(reg) => {
+                let reg_value = self.registers.get_reg(reg);
+                let dest: u16 = reg_value.into();
+                let result = dest - source_value;
+                let msb_is_1 = (0x8000 & result) != 0;
+
+                self.registers.flags.sign = msb_is_1;
+                self.registers.flags.zero = result == 0;
+            }
+            Operand::MemoryAddress(_) => todo!(),
+            Operand::Immediate(_) => todo!(),
+            Operand::ByteImmediate(_) => todo!(),
+            Operand::WordImmediate(_) => todo!(),
+            Operand::InstPtrIncrement(_) => todo!(),
         }
     }
 
@@ -47,7 +129,7 @@ impl Executor {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct Registers {
     ax: Word,
     bx: Word,
@@ -57,20 +139,12 @@ pub struct Registers {
     bp: Word,
     si: Word,
     di: Word,
+    flags: Flags,
 }
 
 impl Registers {
     pub fn new() -> Registers {
-        Registers {
-            ax: Word::default(),
-            bx: Word::default(),
-            cx: Word::default(),
-            dx: Word::default(),
-            sp: Word::default(),
-            bp: Word::default(),
-            si: Word::default(),
-            di: Word::default(),
-        }
+        Registers::default()
     }
 
     pub fn get_reg(&mut self, reg: &Register) -> &mut Word {
@@ -116,4 +190,10 @@ impl Registers {
             Register::BP => self.bp = value.into(),
         }
     }
+}
+
+#[derive(Debug, Default)]
+struct Flags {
+    sign: bool,
+    zero: bool,
 }

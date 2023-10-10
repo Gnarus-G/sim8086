@@ -28,3 +28,8 @@ fn movs() {
     test_with!("immediate_movs");
     test_with!("register_movs");
 }
+
+#[test]
+fn add_sub_cmp() {
+    test_with!("add_sub_cmp");
+}
