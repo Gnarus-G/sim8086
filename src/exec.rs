@@ -28,8 +28,9 @@ impl<'source> Executor<'source> {
         value
     }
 
-    pub fn execute_next(&mut self) -> Option<Instruction> {
+    pub fn execute_next(&mut self) -> Option<(Instruction, RegistersDiff)> {
         self.decoder.decode_next().map(|i| {
+            let before = self.registers;
             match &i.opcode {
                 Opcode::Mov(_) => self.execute_mov(&i),
                 Opcode::Add(_) => self.execute_add(&i),
@@ -37,7 +38,7 @@ impl<'source> Executor<'source> {
                 Opcode::Cmp(_) => self.execute_cmp(&i),
                 Opcode::J(_) => todo!(),
             };
-            i
+            (i, RegistersDiff(before, self.registers))
         })
     }
 
@@ -134,7 +135,7 @@ impl<'source> Executor<'source> {
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Default, Clone, Copy)]
 pub struct Registers {
     ax: Word,
     bx: Word,
@@ -197,7 +198,32 @@ impl Registers {
     }
 }
 
-#[derive(Default)]
+impl Debug for Registers {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        macro_rules! disp {
+            ($reg:ident) => {
+                disp!($reg, "\n")
+            };
+            ($reg:ident, $delim:expr) => {
+                write!(f, "{:>5}: {:#?}{}", stringify!($reg), self.$reg, $delim)?
+            };
+        }
+
+        disp!(ax);
+        disp!(bx);
+        disp!(cx);
+        disp!(dx);
+        disp!(sp);
+        disp!(bp);
+        disp!(si);
+        disp!(di);
+        disp!(flags, "");
+
+        Ok(())
+    }
+}
+
+#[derive(Default, Clone, Copy, PartialEq)]
 struct Flags {
     sign: bool,
     zero: bool,
@@ -214,5 +240,41 @@ impl Debug for Flags {
 
         display("S", self.sign)?;
         display("Z", self.zero)
+    }
+}
+
+pub struct RegistersDiff(Registers, Registers);
+
+impl Debug for RegistersDiff {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        macro_rules! disp {
+            ($reg:ident) => {
+                disp!($reg, ", ")
+            };
+            ($reg:ident, $delim:expr) => {
+                if self.0.$reg != self.1.$reg {
+                    write!(
+                        f,
+                        "{}:{:?}->{:?}{}",
+                        stringify!($reg),
+                        self.0.$reg,
+                        self.1.$reg,
+                        $delim
+                    )?
+                }
+            };
+        }
+
+        disp!(ax);
+        disp!(bx);
+        disp!(cx);
+        disp!(dx);
+        disp!(sp);
+        disp!(bp);
+        disp!(si);
+        disp!(di);
+        disp!(flags, "");
+
+        Ok(())
     }
 }

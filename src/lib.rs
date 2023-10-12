@@ -172,7 +172,7 @@ impl Register {
     }
 }
 
-#[derive(Clone, Copy, Default)]
+#[derive(Clone, Copy, Default, PartialEq)]
 pub struct Word {
     pub lo: u8,
     pub hi: u8,
@@ -224,11 +224,12 @@ impl std::fmt::Binary for Word {
 
 impl Debug for Word {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let lit = u16::from(*self);
         if f.alternate() {
             let lit = u16::from(*self);
             write!(f, "{:#06x} ({})", lit, lit)
         } else {
-            write!(f, "lo({:#04x}) hi({:#04x})", self.lo, self.hi)
+            write!(f, "{:#x}", lit)
         }
     }
 }

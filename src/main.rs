@@ -20,11 +20,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     if cli.exec {
         let mut exe = Executor::new(Decoder::new(&buffer));
 
-        while let Some(i) = exe.execute_next() {
-            println!("{}", i);
+        while let Some((i, diff)) = exe.execute_next() {
+            print!("{}", i);
+            println!(" ; {:?}", diff);
         }
 
-        println!("\n{:#?}", exe.registers);
+        println!("\nFinal registers:");
+        println!("{:#?}", exe.registers);
     } else {
         println!("bits 16\n");
 
