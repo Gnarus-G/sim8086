@@ -1,6 +1,6 @@
 use clap::Parser;
 use sim8086::{
-    decode::{decode, Scanner},
+    decode::{decode, Decoder},
     exec::Executor,
 };
 use std::{fs, path::PathBuf};
@@ -21,8 +21,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let buffer = fs::read(cli.path)?;
 
     if cli.exec {
-        let mut scanner = Scanner::new(&buffer);
-        scanner.scan();
+        let mut scanner = Decoder::new(&buffer);
+        scanner.decode();
         let mut exe = Executor::new();
         exe.execute(&scanner.instructions);
 

@@ -3,14 +3,14 @@ use crate::{
     Register, Word,
 };
 
-pub struct Scanner<'source> {
+pub struct Decoder<'source> {
     input: &'source [u8],
     offset: usize,
     read_offset: usize,
     pub instructions: Vec<Instruction>,
 }
 
-impl<'source> Scanner<'source> {
+impl<'source> Decoder<'source> {
     pub fn new(input: &'source [u8]) -> Self {
         Self {
             input,
@@ -43,46 +43,46 @@ impl<'source> Scanner<'source> {
         self.curr_word()
     }
 
-    pub fn scan(&mut self) {
+    pub fn decode(&mut self) {
         while let Some(word) = self.next_word() {
             let opcode = Opcode::try_from(&word).unwrap();
             let i = match &opcode {
                 Opcode::Mov(m) => match m {
-                    Mov::ImmToReg => self.scan_mov_immediate_to_register(opcode),
-                    Mov::RM => self.scan_register_memory_to_from_either(opcode),
-                    Mov::ImmToRegOrMem => self.scan_mov_immediate_to_reg_or_memory(opcode),
-                    Mov::MemToAcc => self.scan_mov_mem_to_acc(opcode),
-                    Mov::AccToMem => self.scan_mov_acc_to_mem(opcode),
+                    Mov::ImmToReg => self.decode_mov_immediate_to_register(opcode),
+                    Mov::RM => self.decode_register_memory_to_from_either(opcode),
+                    Mov::ImmToRegOrMem => self.decode_mov_immediate_to_reg_or_memory(opcode),
+                    Mov::MemToAcc => self.decode_mov_mem_to_acc(opcode),
+                    Mov::AccToMem => self.decode_mov_acc_to_mem(opcode),
                 },
                 Opcode::Add(a) => match a {
-                    Add::RM => self.scan_register_memory_to_from_either(opcode),
+                    Add::RM => self.decode_register_memory_to_from_either(opcode),
                     Add::ImmToRegOrMem => {
-                        self.scan_immediate_to_reg_or_memory_with_sign_extension(opcode)
+                        self.decode_immediate_to_reg_or_memory_with_sign_extension(opcode)
                     }
-                    Add::ImmToAcc => self.scan_immediate_to_acc(opcode),
+                    Add::ImmToAcc => self.decode_immediate_to_acc(opcode),
                 },
                 Opcode::Sub(s) => match s {
-                    Sub::RM => self.scan_register_memory_to_from_either(opcode),
+                    Sub::RM => self.decode_register_memory_to_from_either(opcode),
                     Sub::ImmToRegOrMem => {
-                        self.scan_immediate_to_reg_or_memory_with_sign_extension(opcode)
+                        self.decode_immediate_to_reg_or_memory_with_sign_extension(opcode)
                     }
-                    Sub::ImmToAcc => self.scan_immediate_to_acc(opcode),
+                    Sub::ImmToAcc => self.decode_immediate_to_acc(opcode),
                 },
                 Opcode::Cmp(c) => match c {
-                    Cmp::RM => self.scan_register_memory_to_from_either(opcode),
+                    Cmp::RM => self.decode_register_memory_to_from_either(opcode),
                     Cmp::ImmToRegOrMem => {
-                        self.scan_immediate_to_reg_or_memory_with_sign_extension(opcode)
+                        self.decode_immediate_to_reg_or_memory_with_sign_extension(opcode)
                     }
-                    Cmp::ImmToAcc => self.scan_immediate_to_acc(opcode),
+                    Cmp::ImmToAcc => self.decode_immediate_to_acc(opcode),
                 },
-                Opcode::J(_) => self.scan_jump(opcode),
+                Opcode::J(_) => self.decode_jump(opcode),
             };
 
             self.instructions.push(i);
         }
     }
 
-    fn scan_register_memory_to_from_either(&mut self, opcode: Opcode) -> Instruction {
+    fn decode_register_memory_to_from_either(&mut self, opcode: Opcode) -> Instruction {
         let word = self.curr_word().unwrap();
 
         let destination;
@@ -144,7 +144,7 @@ impl<'source> Scanner<'source> {
         }
     }
 
-    fn scan_mov_immediate_to_register(&mut self, opcode: Opcode) -> Instruction {
+    fn decode_mov_immediate_to_register(&mut self, opcode: Opcode) -> Instruction {
         let word = self.curr_word().unwrap();
 
         // W
@@ -169,7 +169,7 @@ impl<'source> Scanner<'source> {
         }
     }
 
-    fn scan_mov_immediate_to_reg_or_memory(&mut self, opcode: Opcode) -> Instruction {
+    fn decode_mov_immediate_to_reg_or_memory(&mut self, opcode: Opcode) -> Instruction {
         let word = self.curr_word().unwrap();
 
         // W
@@ -223,7 +223,7 @@ impl<'source> Scanner<'source> {
         }
     }
 
-    fn scan_mov_mem_to_acc(&mut self, opcode: Opcode) -> Instruction {
+    fn decode_mov_mem_to_acc(&mut self, opcode: Opcode) -> Instruction {
         let word = self.curr_word().unwrap();
 
         // W
@@ -245,7 +245,7 @@ impl<'source> Scanner<'source> {
         }
     }
 
-    fn scan_mov_acc_to_mem(&mut self, opcode: Opcode) -> Instruction {
+    fn decode_mov_acc_to_mem(&mut self, opcode: Opcode) -> Instruction {
         let word = self.curr_word().unwrap();
 
         // W
@@ -265,7 +265,7 @@ impl<'source> Scanner<'source> {
         }
     }
 
-    fn scan_immediate_to_acc(&mut self, opcode: Opcode) -> Instruction {
+    fn decode_immediate_to_acc(&mut self, opcode: Opcode) -> Instruction {
         let word = self.curr_word().unwrap();
 
         // W
@@ -287,7 +287,7 @@ impl<'source> Scanner<'source> {
         }
     }
 
-    fn scan_immediate_to_reg_or_memory_with_sign_extension(
+    fn decode_immediate_to_reg_or_memory_with_sign_extension(
         &mut self,
         opcode: Opcode,
     ) -> Instruction {
@@ -354,7 +354,7 @@ impl<'source> Scanner<'source> {
         }
     }
 
-    fn scan_jump(&mut self, opcode: Opcode) -> Instruction {
+    fn decode_jump(&mut self, opcode: Opcode) -> Instruction {
         let word = self.curr_word().unwrap();
         let inc = word.hi as i8;
 
@@ -367,9 +367,9 @@ impl<'source> Scanner<'source> {
 }
 
 pub fn decode(buffer: &[u8]) -> Vec<String> {
-    let mut scanner = Scanner::new(buffer);
+    let mut decoder = Decoder::new(buffer);
 
-    scanner.scan();
+    decoder.decode();
 
-    scanner.instructions.iter().map(|i| i.to_string()).collect()
+    decoder.instructions.iter().map(|i| i.to_string()).collect()
 }
