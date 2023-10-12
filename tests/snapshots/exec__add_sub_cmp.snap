@@ -3,6 +3,15 @@ source: tests/exec.rs
 description: add_sub_cmp
 expression: app_output
 ---
+mov bx, 61443
+mov cx, 3841
+sub bx, cx
+mov sp, 998
+mov bp, 999
+cmp bp, sp
+add bp, word 1027
+sub bp, word 2026
+
 Registers {
     ax: 0x0000 (0),
     bx: 0xe102 (57602),

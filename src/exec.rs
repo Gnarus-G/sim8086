@@ -1,15 +1,17 @@
 use std::fmt::Debug;
 
-use crate::{Instruction, Opcode, Operand, Register, Word};
+use crate::{decode::Decoder, Instruction, Opcode, Operand, Register, Word};
 
-pub struct Executor {
+pub struct Executor<'source> {
+    decoder: Decoder<'source>,
     pub registers: Registers,
 }
 
-impl Executor {
-    pub fn new() -> Self {
+impl<'source> Executor<'source> {
+    pub fn new(decoder: Decoder<'source>) -> Self {
         Self {
             registers: Registers::new(),
+            decoder,
         }
     }
 
@@ -26,16 +28,17 @@ impl Executor {
         value
     }
 
-    pub fn execute(&mut self, instructions: &[Instruction]) {
-        for i in instructions {
+    pub fn execute_next(&mut self) -> Option<Instruction> {
+        self.decoder.decode_next().map(|i| {
             match &i.opcode {
-                Opcode::Mov(_) => self.execute_mov(i),
-                Opcode::Add(_) => self.execute_add(i),
-                Opcode::Sub(_) => self.execute_sub(i),
-                Opcode::Cmp(_) => self.execute_cmp(i),
+                Opcode::Mov(_) => self.execute_mov(&i),
+                Opcode::Add(_) => self.execute_add(&i),
+                Opcode::Sub(_) => self.execute_sub(&i),
+                Opcode::Cmp(_) => self.execute_cmp(&i),
                 Opcode::J(_) => todo!(),
-            }
-        }
+            };
+            i
+        })
     }
 
     fn execute_add(&mut self, i: &Instruction) {

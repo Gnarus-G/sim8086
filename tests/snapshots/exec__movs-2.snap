@@ -3,6 +3,19 @@ source: tests/exec.rs
 description: register_movs
 expression: app_output
 ---
+mov ax, 1
+mov bx, 2
+mov cx, 3
+mov dx, 4
+mov sp, ax
+mov bp, bx
+mov si, cx
+mov di, dx
+mov dx, sp
+mov cx, bp
+mov bx, si
+mov ax, di
+
 Registers {
     ax: 0x0004 (4),
     bx: 0x0003 (3),

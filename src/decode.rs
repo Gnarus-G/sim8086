@@ -7,7 +7,6 @@ pub struct Decoder<'source> {
     input: &'source [u8],
     offset: usize,
     read_offset: usize,
-    pub instructions: Vec<Instruction>,
 }
 
 impl<'source> Decoder<'source> {
@@ -16,7 +15,6 @@ impl<'source> Decoder<'source> {
             input,
             offset: 0,
             read_offset: 0,
-            instructions: vec![],
         }
     }
 
@@ -43,8 +41,8 @@ impl<'source> Decoder<'source> {
         self.curr_word()
     }
 
-    pub fn decode(&mut self) {
-        while let Some(word) = self.next_word() {
+    pub fn decode_next(&mut self) -> Option<Instruction> {
+        if let Some(word) = self.next_word() {
             let opcode = Opcode::try_from(&word).unwrap();
             let i = match &opcode {
                 Opcode::Mov(m) => match m {
@@ -78,8 +76,10 @@ impl<'source> Decoder<'source> {
                 Opcode::J(_) => self.decode_jump(opcode),
             };
 
-            self.instructions.push(i);
+            return Some(i);
         }
+
+        None
     }
 
     fn decode_register_memory_to_from_either(&mut self, opcode: Opcode) -> Instruction {
@@ -364,12 +364,4 @@ impl<'source> Decoder<'source> {
             destination: Operand::InstPtrIncrement(inc),
         }
     }
-}
-
-pub fn decode(buffer: &[u8]) -> Vec<String> {
-    let mut decoder = Decoder::new(buffer);
-
-    decoder.decode();
-
-    decoder.instructions.iter().map(|i| i.to_string()).collect()
 }

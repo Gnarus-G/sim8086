@@ -3,6 +3,15 @@ source: tests/exec.rs
 description: immediate_movs
 expression: app_output
 ---
+mov ax, 1
+mov bx, 2
+mov cx, 3
+mov dx, 4
+mov sp, 5
+mov bp, 6
+mov si, 7
+mov di, 8
+
 Registers {
     ax: 0x0001 (1),
     bx: 0x0002 (2),
