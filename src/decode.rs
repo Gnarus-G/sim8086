@@ -19,6 +19,7 @@ impl<'source> Decoder<'source> {
     }
 
     fn curr_word(&self) -> Option<Word> {
+        debug_assert!(self.offset < self.read_offset);
         let Some([a, b]) = self.input.get(self.offset..self.offset + 2) else {
             return None;
         };

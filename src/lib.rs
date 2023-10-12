@@ -1,4 +1,4 @@
-use std::fmt::{Debug, Display};
+use std::fmt::{format, Debug, Display};
 
 use add::Add;
 use cmp::Cmp;
@@ -110,7 +110,14 @@ impl Display for Operand {
                 Operand::Immediate(value) => value.to_string(),
                 Operand::ByteImmediate(b) => format!("byte {}", b),
                 Operand::WordImmediate(w) => format!("word {}", w),
-                Operand::InstPtrIncrement(p) => format!("label; {}", p),
+                Operand::InstPtrIncrement(p) => format!(
+                    "${}",
+                    if p.signum() >= 0 {
+                        format!("+{}", p)
+                    } else {
+                        format!("{}", p)
+                    }
+                ),
             }
         )
     }

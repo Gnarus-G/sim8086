@@ -41,5 +41,5 @@ fn ip_tracking() {
 
 #[test]
 fn conditional_jumps() {
-    // test_with!("add_sub_cmp");
+    test_with!("conditional_jumps");
 }

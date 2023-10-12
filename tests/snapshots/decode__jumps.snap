@@ -5,28 +5,28 @@ expression: app_output
 ---
 bits 16
 
-jne label; 2
-jne label; -4
-jne label; -6
-jne label; -4
-je label; -2
-jl label; -4
-jle label; -6
-jb label; -8
-jbe label; -10
-jp label; -12
-jo label; -14
-js label; -16
-jne label; -18
-jnl label; -20
-jg label; -22
-jnb label; -24
-ja label; -26
-jnp label; -28
-jno label; -30
-jns label; -32
-loop label; -34
-loopz label; -36
-loopnz label; -38
-jcxz label; -40
+jne $+2
+jne $-4
+jne $-6
+jne $-4
+je $-2
+jl $-4
+jle $-6
+jb $-8
+jbe $-10
+jp $-12
+jo $-14
+js $-16
+jne $-18
+jnl $-20
+jg $-22
+jnb $-24
+ja $-26
+jnp $-28
+jno $-30
+jns $-32
+loop $-34
+loopz $-36
+loopnz $-38
+jcxz $-40
 

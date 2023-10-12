@@ -1,6 +1,6 @@
 use std::fmt::Debug;
 
-use crate::{decode::Decoder, Instruction, Opcode, Operand, Register, Word};
+use crate::{decode::Decoder, jump::J, Instruction, Opcode, Operand, Register, Word};
 
 pub struct Executor<'source> {
     decoder: Decoder<'source>,
@@ -37,7 +37,7 @@ impl<'source> Executor<'source> {
                 Opcode::Add(_) => self.execute_add(&i),
                 Opcode::Sub(_) => self.execute_sub(&i),
                 Opcode::Cmp(_) => self.execute_cmp(&i),
-                Opcode::J(_) => todo!(),
+                Opcode::J(_) => self.execute_jump(&i),
             };
             (i, RegistersDiff(before, self.registers))
         })
@@ -132,6 +132,25 @@ impl<'source> Executor<'source> {
             Operand::ByteImmediate(_) => todo!(),
             Operand::WordImmediate(_) => todo!(),
             Operand::InstPtrIncrement(_) => todo!(),
+        }
+    }
+
+    fn execute_jump(&mut self, i: &Instruction) {
+        let inc = match &i.destination {
+            Operand::InstPtrIncrement(inc) => *inc,
+            _ => unreachable!(),
+        };
+
+        let new_offset = (u16::from(self.registers.ip) as i16 + inc as i16) as u16;
+
+        match &i.opcode {
+            Opcode::J(J::Jne) => {
+                if !self.registers.flags.zero {
+                    self.decoder.read_offset = new_offset as usize;
+                    self.registers.ip = Word::from(new_offset);
+                }
+            }
+            _ => todo!(),
         }
     }
 }
