@@ -31,6 +31,7 @@ impl<'source> Executor<'source> {
     pub fn execute_next(&mut self) -> Option<(Instruction, RegistersDiff)> {
         self.decoder.decode_next().map(|i| {
             let before = self.registers;
+            self.registers.ip = (self.decoder.read_offset as u16).into();
             match &i.opcode {
                 Opcode::Mov(_) => self.execute_mov(&i),
                 Opcode::Add(_) => self.execute_add(&i),
@@ -73,7 +74,7 @@ impl<'source> Executor<'source> {
             Operand::Register(reg) => {
                 let reg_value = self.registers.get_reg(reg);
                 let dest: u16 = reg_value.into();
-                let result = dest - source_value;
+                let result = dest.wrapping_sub(source_value);
                 self.registers.set(reg, result);
                 let msb_is_1 = (0x8000 & result) != 0;
 
@@ -146,6 +147,7 @@ pub struct Registers {
     si: Word,
     di: Word,
     flags: Flags,
+    ip: Word,
 }
 
 impl Registers {
@@ -217,6 +219,7 @@ impl Debug for Registers {
         disp!(bp);
         disp!(si);
         disp!(di);
+        disp!(ip);
         disp!(flags, "");
 
         Ok(())
@@ -273,6 +276,7 @@ impl Debug for RegistersDiff {
         disp!(bp);
         disp!(si);
         disp!(di);
+        disp!(ip);
         disp!(flags, "");
 
         Ok(())

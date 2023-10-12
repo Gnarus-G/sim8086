@@ -6,7 +6,7 @@ use crate::{
 pub struct Decoder<'source> {
     input: &'source [u8],
     offset: usize,
-    read_offset: usize,
+    pub(crate) read_offset: usize,
 }
 
 impl<'source> Decoder<'source> {

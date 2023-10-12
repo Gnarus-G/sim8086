@@ -33,3 +33,13 @@ fn movs() {
 fn add_sub_cmp() {
     test_with!("add_sub_cmp");
 }
+
+#[test]
+fn ip_tracking() {
+    test_with!("ip_register");
+}
+
+#[test]
+fn conditional_jumps() {
+    // test_with!("add_sub_cmp");
+}
