@@ -54,3 +54,8 @@ fn memory_add_loop() {
     test_with!("memory_add_loop");
     test_with!("add_loop_challenge");
 }
+
+#[test]
+fn draw_rectangle_img() {
+    test_with!("draw_rectangle");
+}

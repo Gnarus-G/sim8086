@@ -5,7 +5,7 @@ use crate::{
 };
 
 pub struct Executor<'source> {
-    memory: mem::Memory,
+    pub memory: mem::Memory,
     decoder: Decoder<'source>,
     pub registers: Registers,
 }
@@ -19,16 +19,16 @@ impl<'source> Executor<'source> {
         }
     }
 
-    fn eval_operand(&mut self, operand: &Operand) -> u16 {
+    fn eval_operand(&mut self, operand: &Operand) -> Word {
         let value = match operand {
-            Operand::Immediate(imm) => *imm,
-            Operand::Register(reg) => self.registers.get_reg(reg).into(),
+            Operand::Immediate(imm) => (*imm).into(),
+            Operand::Register(reg) => *self.registers.get_reg(reg),
             Operand::MemoryAddress(eac) => {
                 let addr = self.resolve_eac(eac);
-                self.memory.load(addr).into()
+                self.memory.load(addr)
             }
-            Operand::ByteImmediate(_) => todo!(),
-            Operand::WordImmediate(imm) => *imm,
+            Operand::ByteImmediate(imm) => Word::new(0, *imm),
+            Operand::WordImmediate(imm) => (*imm).into(),
             Operand::InstPtrIncrement(_) => todo!(),
         };
 
@@ -52,7 +52,7 @@ impl<'source> Executor<'source> {
 
     fn execute_add(&mut self, i: &Instruction) {
         let source = i.source.as_ref().expect("add to have a source operand");
-        let source_value = self.eval_operand(source);
+        let source_value: u16 = self.eval_operand(source).into();
 
         match &i.destination {
             Operand::Register(reg) => {
@@ -75,7 +75,7 @@ impl<'source> Executor<'source> {
 
     fn execute_sub(&mut self, i: &Instruction) {
         let source = i.source.as_ref().expect("sub to have a source operand");
-        let source_value = self.eval_operand(source);
+        let source_value: u16 = self.eval_operand(source).into();
 
         match &i.destination {
             Operand::Register(reg) => {
@@ -98,7 +98,7 @@ impl<'source> Executor<'source> {
 
     fn execute_cmp(&mut self, i: &Instruction) {
         let source = i.source.as_ref().expect("sub to have a source operand");
-        let source_value = self.eval_operand(source);
+        let source_value: u16 = self.eval_operand(source).into();
 
         match &i.destination {
             Operand::Register(reg) => {
@@ -121,21 +121,11 @@ impl<'source> Executor<'source> {
     fn execute_mov(&mut self, i: &Instruction) {
         let source = i.source.as_ref().expect("movs to have a source operand");
 
-        let value = match source {
-            Operand::Immediate(imm) => *imm,
-            Operand::Register(reg) => self.registers.get_reg(reg).into(),
-            Operand::MemoryAddress(eac) => {
-                let addr = self.resolve_eac(eac);
-                self.memory.load(addr).into()
-            }
-            Operand::ByteImmediate(_) => todo!(),
-            Operand::WordImmediate(imm) => *imm,
-            Operand::InstPtrIncrement(_) => todo!(),
-        };
+        let value = self.eval_operand(source);
 
         match &i.destination {
             Operand::Register(reg) => {
-                self.registers.set(reg, value);
+                self.registers.set(reg, value.into());
             }
             Operand::MemoryAddress(eac) => {
                 let addr = self.resolve_eac(eac);
@@ -371,6 +361,10 @@ mod mem {
         pub fn load(&mut self, addr: u16) -> Word {
             let addr = addr as usize;
             Word::new(self.buffer[addr + 1], self.buffer[addr])
+        }
+
+        pub fn dump(&self) -> Vec<u8> {
+            self.buffer.to_vec()
         }
     }
 }

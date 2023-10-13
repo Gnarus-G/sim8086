@@ -10,6 +10,9 @@ struct Cli {
 
     #[arg(short, long)]
     exec: bool,
+
+    #[arg(short, long, requires = "exec")]
+    dump: bool,
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -27,6 +30,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         println!("\nFinal registers:");
         println!("{:#?}", exe.registers);
+
+        if cli.dump {
+            let data = exe.memory.dump();
+            fs::write("sim86_memory_0.data", data)?
+        }
     } else {
         println!("bits 16\n");
 
