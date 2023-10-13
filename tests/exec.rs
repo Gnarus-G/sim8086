@@ -19,7 +19,9 @@ macro_rules! test_with {
 
         insta::with_settings!({ description => $file }, {
             assert_display_snapshot!(app_output);
-        })
+        });
+
+        std::fs::remove_file(format!("./fixtures/exec/{}", $file)).unwrap();
     };
 }
 
