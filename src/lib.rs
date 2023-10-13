@@ -1,4 +1,4 @@
-use std::fmt::{format, Debug, Display};
+use std::fmt::{Debug, Display};
 
 use add::Add;
 use cmp::Cmp;
@@ -181,13 +181,13 @@ impl Register {
 
 #[derive(Clone, Copy, Default, PartialEq)]
 pub struct Word {
-    pub lo: u8,
-    pub hi: u8,
+    pub first: u8,
+    pub second: u8,
 }
 
 impl Word {
-    fn new(lo: u8, hi: u8) -> Self {
-        Self { lo, hi }
+    fn new(first: u8, second: u8) -> Self {
+        Self { first, second }
     }
 }
 
@@ -199,8 +199,8 @@ impl From<&mut Word> for u16 {
 
 impl From<Word> for u16 {
     fn from(val: Word) -> Self {
-        let high_bits = (val.hi as u16) << 8;
-        let low_bits = val.lo as u16;
+        let high_bits = (val.second as u16) << 8;
+        let low_bits = val.first as u16;
         high_bits | low_bits
     }
 }
@@ -217,15 +217,15 @@ impl From<u16> for Word {
         let low = (value << 8) >> 8;
 
         Self {
-            lo: low as u8,
-            hi: high as u8,
+            first: low as u8,
+            second: high as u8,
         }
     }
 }
 
 impl std::fmt::Binary for Word {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "lo({:08b}) hi({:08b})", self.lo, self.hi)
+        write!(f, "first({:08b}) second({:08b})", self.first, self.second)
     }
 }
 
@@ -266,9 +266,9 @@ impl Display for Opcode {
 impl Opcode {
     fn try_from(word: &Word) -> Option<Opcode> {
         // println!("word {:b}", word);
-        let first_four_bits = word.lo >> 4;
-        let first_six_bits = word.lo >> 2;
-        let first_seven_bits = word.lo >> 1;
+        let first_four_bits = word.first >> 4;
+        let first_six_bits = word.first >> 2;
+        let first_seven_bits = word.first >> 1;
 
         match first_six_bits {
             0b100010 => Some(Opcode::Mov(Mov::RM)),
@@ -276,7 +276,7 @@ impl Opcode {
             0b001010 => Some(Opcode::Sub(Sub::RM)),
             0b001110 => Some(Opcode::Cmp(Cmp::RM)),
             0b100000 => {
-                let b = (word.hi & 0b00111000) >> 3;
+                let b = (word.second & 0b00111000) >> 3;
 
                 match b {
                     0b000 => Some(Opcode::Add(Add::ImmToRegOrMem)),
@@ -294,7 +294,7 @@ impl Opcode {
                     0b0000010 => Some(Opcode::Add(Add::ImmToAcc)),
                     0b0010110 => Some(Opcode::Sub(Sub::ImmToAcc)),
                     0b0011110 => Some(Opcode::Cmp(Cmp::ImmToAcc)),
-                    _ => match word.lo {
+                    _ => match word.first {
                         0b01110101 => Some(Opcode::J(J::Jne)),
                         0b01110100 => Some(Opcode::J(J::Je)),
                         0b01111100 => Some(Opcode::J(J::Jl)),

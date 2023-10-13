@@ -199,14 +199,14 @@ impl Registers {
 
     pub fn set(&mut self, reg: &Register, value: u16) {
         match reg {
-            Register::AL => self.ax.lo = value as u8,
-            Register::BL => self.bx.lo = value as u8,
-            Register::CL => self.cx.lo = value as u8,
-            Register::DL => self.dx.lo = value as u8,
-            Register::AH => self.ax.hi = value as u8,
-            Register::BH => self.bx.hi = value as u8,
-            Register::CH => self.cx.hi = value as u8,
-            Register::DH => self.dx.hi = value as u8,
+            Register::AL => self.ax.first = value as u8,
+            Register::BL => self.bx.first = value as u8,
+            Register::CL => self.cx.first = value as u8,
+            Register::DL => self.dx.first = value as u8,
+            Register::AH => self.ax.second = value as u8,
+            Register::BH => self.bx.second = value as u8,
+            Register::CH => self.cx.second = value as u8,
+            Register::DH => self.dx.second = value as u8,
             Register::AX => self.ax = value.into(),
             Register::BX => self.bx = value.into(),
             Register::CX => self.cx = value.into(),

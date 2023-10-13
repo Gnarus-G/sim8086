@@ -23,7 +23,10 @@ impl<'source> Decoder<'source> {
         let Some([a, b]) = self.input.get(self.offset..self.offset + 2) else {
             return None;
         };
-        Some(Word { lo: *a, hi: *b })
+        Some(Word {
+            first: *a,
+            second: *b,
+        })
     }
 
     fn next_byte(&mut self) -> Option<u8> {
@@ -91,20 +94,20 @@ impl<'source> Decoder<'source> {
 
         // D
         let d_mask = 0x02;
-        let reg_is_destination = (d_mask & word.lo) == d_mask;
+        let reg_is_destination = (d_mask & word.first) == d_mask;
 
         // W
         let w_mask = 1;
-        let wide = w_mask & word.lo;
+        let wide = w_mask & word.first;
 
         // MOD
-        let mode = (word.hi & 0b11000000) >> 6;
+        let mode = (word.second & 0b11000000) >> 6;
 
         // REG
-        let reg_code = (word.hi & 0b00111000) >> 3;
+        let reg_code = (word.second & 0b00111000) >> 3;
 
         // R/M
-        let rm = word.hi & 0x07;
+        let rm = word.second & 0x07;
 
         let mut get_other_operand = || match mode {
             0b00 => {
@@ -124,7 +127,7 @@ impl<'source> Decoder<'source> {
                 Operand::MemoryAddress(eac)
             }
             0b11 => {
-                let rm_reg_code = word.hi & 0b00000111;
+                let rm_reg_code = word.second & 0b00000111;
                 Operand::Register(Register::try_from(&rm_reg_code, &wide).unwrap())
             }
             _ => unreachable!(),
@@ -149,16 +152,16 @@ impl<'source> Decoder<'source> {
         let word = self.curr_word().unwrap();
 
         // W
-        let wide = (0b00001000 & word.lo) >> 3;
+        let wide = (0b00001000 & word.first) >> 3;
 
         // REG
-        let reg_code = 0b00000111 & word.lo;
+        let reg_code = 0b00000111 & word.first;
 
         let source = if wide == 0 {
-            Operand::Immediate(word.hi as u16)
+            Operand::Immediate(word.second as u16)
         } else {
             let next_byte = self.next_byte().expect("a byte after current word");
-            let next_word = Word::new(word.hi, next_byte);
+            let next_word = Word::new(word.second, next_byte);
             let value = next_word.into();
             Operand::Immediate(value)
         };
@@ -175,13 +178,13 @@ impl<'source> Decoder<'source> {
 
         // W
         let w_mask = 1;
-        let wide = w_mask & word.lo;
+        let wide = w_mask & word.first;
 
         // MOD
-        let mode = (word.hi & 0b11000000) >> 6;
+        let mode = (word.second & 0b11000000) >> 6;
 
         // R/M
-        let rm = word.hi & 0x07;
+        let rm = word.second & 0x07;
 
         let mut get_destination_operand = || match mode {
             0b00 => {
@@ -201,7 +204,7 @@ impl<'source> Decoder<'source> {
                 Operand::MemoryAddress(eac)
             }
             0b11 => {
-                let rm_reg_code = word.hi & 0b00000111;
+                let rm_reg_code = word.second & 0b00000111;
                 Operand::Register(Register::try_from(&rm_reg_code, &wide).unwrap())
             }
             _ => unreachable!(),
@@ -229,12 +232,12 @@ impl<'source> Decoder<'source> {
 
         // W
         let w_mask = 1;
-        let wide = w_mask & word.lo;
+        let wide = w_mask & word.first;
 
         let addr: u16 = if wide == 1 {
-            Word::new(word.hi, self.next_byte().unwrap()).into()
+            Word::new(word.second, self.next_byte().unwrap()).into()
         } else {
-            word.hi as u16
+            word.second as u16
         };
 
         Instruction {
@@ -251,12 +254,12 @@ impl<'source> Decoder<'source> {
 
         // W
         let w_mask = 1;
-        let wide = w_mask & word.lo;
+        let wide = w_mask & word.first;
 
         let addr: u16 = if wide == 1 {
-            Word::new(word.hi, self.next_byte().unwrap()).into()
+            Word::new(word.second, self.next_byte().unwrap()).into()
         } else {
-            word.hi as u16
+            word.second as u16
         };
 
         Instruction {
@@ -271,13 +274,13 @@ impl<'source> Decoder<'source> {
 
         // W
         let w_mask = 1;
-        let wide = w_mask & word.lo;
+        let wide = w_mask & word.first;
 
         let (imm, reg) = if wide == 1 {
-            let imm = Word::new(word.hi, self.next_byte().unwrap()).into();
+            let imm = Word::new(word.second, self.next_byte().unwrap()).into();
             (imm, Register::AX)
         } else {
-            let imm = word.hi as u16;
+            let imm = word.second as u16;
             (imm, Register::AL)
         };
 
@@ -295,17 +298,17 @@ impl<'source> Decoder<'source> {
         let word = self.curr_word().unwrap();
 
         // S
-        let sign_extend = (word.lo & 0b10) >> 1;
+        let sign_extend = (word.first & 0b10) >> 1;
 
         // W
         let w_mask = 1;
-        let wide = w_mask & word.lo;
+        let wide = w_mask & word.first;
 
         // MOD
-        let mode = (word.hi & 0b11000000) >> 6;
+        let mode = (word.second & 0b11000000) >> 6;
 
         // R/M
-        let rm = word.hi & 0x07;
+        let rm = word.second & 0x07;
 
         let mut get_destination_operand = || match mode {
             0b00 => {
@@ -325,7 +328,7 @@ impl<'source> Decoder<'source> {
                 Operand::MemoryAddress(eac)
             }
             0b11 => {
-                let rm_reg_code = word.hi & 0b00000111;
+                let rm_reg_code = word.second & 0b00000111;
                 Operand::Register(Register::try_from(&rm_reg_code, &wide).unwrap())
             }
             _ => unreachable!(),
@@ -357,7 +360,7 @@ impl<'source> Decoder<'source> {
 
     fn decode_jump(&mut self, opcode: Opcode) -> Instruction {
         let word = self.curr_word().unwrap();
-        let inc = word.hi as i8;
+        let inc = word.second as i8;
 
         Instruction {
             opcode,
