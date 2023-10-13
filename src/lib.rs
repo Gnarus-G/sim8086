@@ -181,13 +181,18 @@ impl Register {
 
 #[derive(Clone, Copy, Default, PartialEq)]
 pub struct Word {
-    pub first: u8,
-    pub second: u8,
+    pub high: u8,
+    pub low: u8,
 }
 
 impl Word {
-    fn new(first: u8, second: u8) -> Self {
-        Self { first, second }
+    fn new(high: u8, low: u8) -> Self {
+        Self { high, low }
+    }
+
+    fn little_endian(mut self) -> Self {
+        std::mem::swap(&mut self.high, &mut self.low);
+        self
     }
 }
 
@@ -199,8 +204,8 @@ impl From<&mut Word> for u16 {
 
 impl From<Word> for u16 {
     fn from(val: Word) -> Self {
-        let high_bits = (val.second as u16) << 8;
-        let low_bits = val.first as u16;
+        let high_bits = (val.high as u16) << 8;
+        let low_bits = val.low as u16;
         high_bits | low_bits
     }
 }
@@ -213,19 +218,16 @@ impl From<Word> for i16 {
 
 impl From<u16> for Word {
     fn from(value: u16) -> Self {
-        let high = value >> 8;
-        let low = (value << 8) >> 8;
+        let high = (value >> 8) as u8;
+        let low = ((value << 8) >> 8) as u8;
 
-        Self {
-            first: low as u8,
-            second: high as u8,
-        }
+        Self { high, low }
     }
 }
 
 impl std::fmt::Binary for Word {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "first({:08b}) second({:08b})", self.first, self.second)
+        write!(f, "hi({:08b}) lo({:08b})", self.high, self.low)
     }
 }
 
@@ -266,9 +268,9 @@ impl Display for Opcode {
 impl Opcode {
     fn try_from(word: &Word) -> Option<Opcode> {
         // println!("word {:b}", word);
-        let first_four_bits = word.first >> 4;
-        let first_six_bits = word.first >> 2;
-        let first_seven_bits = word.first >> 1;
+        let first_four_bits = word.high >> 4;
+        let first_six_bits = word.high >> 2;
+        let first_seven_bits = word.high >> 1;
 
         match first_six_bits {
             0b100010 => Some(Opcode::Mov(Mov::RM)),
@@ -276,7 +278,7 @@ impl Opcode {
             0b001010 => Some(Opcode::Sub(Sub::RM)),
             0b001110 => Some(Opcode::Cmp(Cmp::RM)),
             0b100000 => {
-                let b = (word.second & 0b00111000) >> 3;
+                let b = (word.low & 0b00111000) >> 3;
 
                 match b {
                     0b000 => Some(Opcode::Add(Add::ImmToRegOrMem)),
@@ -294,7 +296,7 @@ impl Opcode {
                     0b0000010 => Some(Opcode::Add(Add::ImmToAcc)),
                     0b0010110 => Some(Opcode::Sub(Sub::ImmToAcc)),
                     0b0011110 => Some(Opcode::Cmp(Cmp::ImmToAcc)),
-                    _ => match word.first {
+                    _ => match word.high {
                         0b01110101 => Some(Opcode::J(J::Jne)),
                         0b01110100 => Some(Opcode::J(J::Je)),
                         0b01111100 => Some(Opcode::J(J::Jl)),

@@ -231,14 +231,14 @@ impl Registers {
 
     pub fn set(&mut self, reg: &Register, value: u16) {
         match reg {
-            Register::AL => self.ax.first = value as u8,
-            Register::BL => self.bx.first = value as u8,
-            Register::CL => self.cx.first = value as u8,
-            Register::DL => self.dx.first = value as u8,
-            Register::AH => self.ax.second = value as u8,
-            Register::BH => self.bx.second = value as u8,
-            Register::CH => self.cx.second = value as u8,
-            Register::DH => self.dx.second = value as u8,
+            Register::AL => self.ax.high = value as u8,
+            Register::BL => self.bx.high = value as u8,
+            Register::CL => self.cx.high = value as u8,
+            Register::DL => self.dx.high = value as u8,
+            Register::AH => self.ax.low = value as u8,
+            Register::BH => self.bx.low = value as u8,
+            Register::CH => self.cx.low = value as u8,
+            Register::DH => self.dx.low = value as u8,
             Register::AX => self.ax = value.into(),
             Register::BX => self.bx = value.into(),
             Register::CX => self.cx = value.into(),
@@ -354,8 +354,8 @@ mod mem {
             let addr = addr as usize;
             let word: Word = word.into();
 
-            self.buffer[addr] = word.second;
-            self.buffer[addr + 1] = word.first;
+            self.buffer[addr] = word.low;
+            self.buffer[addr + 1] = word.high;
         }
 
         pub fn load(&mut self, addr: u16) -> Word {

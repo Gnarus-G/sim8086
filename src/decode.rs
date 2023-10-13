@@ -23,10 +23,7 @@ impl<'source> Decoder<'source> {
         let Some([a, b]) = self.input.get(self.offset..self.offset + 2) else {
             return None;
         };
-        Some(Word {
-            first: *a,
-            second: *b,
-        })
+        Some(Word { high: *a, low: *b })
     }
 
     fn next_byte(&mut self) -> Option<u8> {
@@ -94,25 +91,26 @@ impl<'source> Decoder<'source> {
 
         // D
         let d_mask = 0x02;
-        let reg_is_destination = (d_mask & word.first) == d_mask;
+        let reg_is_destination = (d_mask & word.high) == d_mask;
 
         // W
         let w_mask = 1;
-        let wide = w_mask & word.first;
+        let wide = w_mask & word.high;
 
         // MOD
-        let mode = (word.second & 0b11000000) >> 6;
+        let mode = (word.low & 0b11000000) >> 6;
 
         // REG
-        let reg_code = (word.second & 0b00111000) >> 3;
+        let reg_code = (word.low & 0b00111000) >> 3;
 
         // R/M
-        let rm = word.second & 0x07;
+        let rm = word.low & 0x07;
 
         let mut get_other_operand = || match mode {
             0b00 => {
-                let eac =
-                    EffectiveAddressCalc::with_no_disp(rm, || self.next_word().unwrap().into());
+                let eac = EffectiveAddressCalc::with_no_disp(rm, || {
+                    self.next_word().unwrap().little_endian().into()
+                });
                 Operand::MemoryAddress(eac)
             }
             0b01 => {
@@ -123,11 +121,12 @@ impl<'source> Decoder<'source> {
                 Operand::MemoryAddress(eac)
             }
             0b10 => {
-                let eac = EffectiveAddressCalc::with_disp(rm, self.next_word().unwrap().into());
+                let displacement = self.next_word().unwrap().little_endian();
+                let eac = EffectiveAddressCalc::with_disp(rm, displacement.into());
                 Operand::MemoryAddress(eac)
             }
             0b11 => {
-                let rm_reg_code = word.second & 0b00000111;
+                let rm_reg_code = word.low & 0b00000111;
                 Operand::Register(Register::try_from(&rm_reg_code, &wide).unwrap())
             }
             _ => unreachable!(),
@@ -152,16 +151,16 @@ impl<'source> Decoder<'source> {
         let word = self.curr_word().unwrap();
 
         // W
-        let wide = (0b00001000 & word.first) >> 3;
+        let wide = (0b00001000 & word.high) >> 3;
 
         // REG
-        let reg_code = 0b00000111 & word.first;
+        let reg_code = 0b00000111 & word.high;
 
         let source = if wide == 0 {
-            Operand::Immediate(word.second as u16)
+            Operand::Immediate(word.low as u16)
         } else {
             let next_byte = self.next_byte().expect("a byte after current word");
-            let next_word = Word::new(word.second, next_byte);
+            let next_word = Word::new(next_byte, word.low);
             let value = next_word.into();
             Operand::Immediate(value)
         };
@@ -178,18 +177,19 @@ impl<'source> Decoder<'source> {
 
         // W
         let w_mask = 1;
-        let wide = w_mask & word.first;
+        let wide = w_mask & word.high;
 
         // MOD
-        let mode = (word.second & 0b11000000) >> 6;
+        let mode = (word.low & 0b11000000) >> 6;
 
         // R/M
-        let rm = word.second & 0x07;
+        let rm = word.low & 0x07;
 
         let mut get_destination_operand = || match mode {
             0b00 => {
-                let eac =
-                    EffectiveAddressCalc::with_no_disp(rm, || self.next_word().unwrap().into());
+                let eac = EffectiveAddressCalc::with_no_disp(rm, || {
+                    self.next_word().unwrap().little_endian().into()
+                });
                 Operand::MemoryAddress(eac)
             }
             0b01 => {
@@ -200,11 +200,12 @@ impl<'source> Decoder<'source> {
                 Operand::MemoryAddress(eac)
             }
             0b10 => {
-                let eac = EffectiveAddressCalc::with_disp(rm, self.next_word().unwrap().into());
+                let displacement = self.next_word().unwrap().little_endian();
+                let eac = EffectiveAddressCalc::with_disp(rm, displacement.into());
                 Operand::MemoryAddress(eac)
             }
             0b11 => {
-                let rm_reg_code = word.second & 0b00000111;
+                let rm_reg_code = word.low & 0b00000111;
                 Operand::Register(Register::try_from(&rm_reg_code, &wide).unwrap())
             }
             _ => unreachable!(),
@@ -213,7 +214,7 @@ impl<'source> Decoder<'source> {
         let destination = get_destination_operand();
 
         let source = if wide == 1 {
-            let data = self.next_word().unwrap();
+            let data = self.next_word().unwrap().little_endian();
             Operand::WordImmediate(data.into())
         } else {
             let data = self.next_byte().unwrap();
@@ -232,12 +233,12 @@ impl<'source> Decoder<'source> {
 
         // W
         let w_mask = 1;
-        let wide = w_mask & word.first;
+        let wide = w_mask & word.high;
 
         let addr: u16 = if wide == 1 {
-            Word::new(word.second, self.next_byte().unwrap()).into()
+            Word::new(self.next_byte().unwrap(), word.low).into()
         } else {
-            word.second as u16
+            word.low as u16
         };
 
         Instruction {
@@ -254,12 +255,12 @@ impl<'source> Decoder<'source> {
 
         // W
         let w_mask = 1;
-        let wide = w_mask & word.first;
+        let wide = w_mask & word.high;
 
         let addr: u16 = if wide == 1 {
-            Word::new(word.second, self.next_byte().unwrap()).into()
+            Word::new(self.next_byte().unwrap(), word.low).into()
         } else {
-            word.second as u16
+            word.low as u16
         };
 
         Instruction {
@@ -274,13 +275,13 @@ impl<'source> Decoder<'source> {
 
         // W
         let w_mask = 1;
-        let wide = w_mask & word.first;
+        let wide = w_mask & word.high;
 
         let (imm, reg) = if wide == 1 {
-            let imm = Word::new(word.second, self.next_byte().unwrap()).into();
+            let imm = Word::new(self.next_byte().unwrap(), word.low).into();
             (imm, Register::AX)
         } else {
-            let imm = word.second as u16;
+            let imm = word.low as u16;
             (imm, Register::AL)
         };
 
@@ -298,22 +299,23 @@ impl<'source> Decoder<'source> {
         let word = self.curr_word().unwrap();
 
         // S
-        let sign_extend = (word.first & 0b10) >> 1;
+        let sign_extend = (word.high & 0b10) >> 1;
 
         // W
         let w_mask = 1;
-        let wide = w_mask & word.first;
+        let wide = w_mask & word.high;
 
         // MOD
-        let mode = (word.second & 0b11000000) >> 6;
+        let mode = (word.low & 0b11000000) >> 6;
 
         // R/M
-        let rm = word.second & 0x07;
+        let rm = word.low & 0x07;
 
         let mut get_destination_operand = || match mode {
             0b00 => {
-                let eac =
-                    EffectiveAddressCalc::with_no_disp(rm, || self.next_word().unwrap().into());
+                let eac = EffectiveAddressCalc::with_no_disp(rm, || {
+                    self.next_word().unwrap().little_endian().into()
+                });
                 Operand::MemoryAddress(eac)
             }
             0b01 => {
@@ -324,11 +326,12 @@ impl<'source> Decoder<'source> {
                 Operand::MemoryAddress(eac)
             }
             0b10 => {
-                let eac = EffectiveAddressCalc::with_disp(rm, self.next_word().unwrap().into());
+                let displacement = self.next_word().unwrap().little_endian();
+                let eac = EffectiveAddressCalc::with_disp(rm, displacement.into());
                 Operand::MemoryAddress(eac)
             }
             0b11 => {
-                let rm_reg_code = word.second & 0b00000111;
+                let rm_reg_code = word.low & 0b00000111;
                 Operand::Register(Register::try_from(&rm_reg_code, &wide).unwrap())
             }
             _ => unreachable!(),
@@ -338,7 +341,7 @@ impl<'source> Decoder<'source> {
 
         let source = match (sign_extend, wide) {
             (0, 1) => {
-                let data = self.next_word().unwrap();
+                let data = self.next_word().unwrap().little_endian();
                 Operand::WordImmediate(data.into())
             }
             (1, 1) => {
@@ -360,7 +363,7 @@ impl<'source> Decoder<'source> {
 
     fn decode_jump(&mut self, opcode: Opcode) -> Instruction {
         let word = self.curr_word().unwrap();
-        let inc = word.second as i8;
+        let inc = word.low as i8;
 
         Instruction {
             opcode,
