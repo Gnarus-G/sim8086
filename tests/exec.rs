@@ -43,3 +43,8 @@ fn ip_tracking() {
 fn conditional_jumps() {
     test_with!("conditional_jumps");
 }
+
+#[test]
+fn memory_movs() {
+    test_with!("memory_mov");
+}

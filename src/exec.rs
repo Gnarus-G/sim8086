@@ -1,8 +1,11 @@
 use std::fmt::Debug;
 
-use crate::{decode::Decoder, jump::J, Instruction, Opcode, Operand, Register, Word};
+use crate::{
+    decode::Decoder, jump::J, EffectiveAddressCalc, Instruction, Opcode, Operand, Register, Word,
+};
 
 pub struct Executor<'source> {
+    memory: mem::Memory,
     decoder: Decoder<'source>,
     pub registers: Registers,
 }
@@ -10,6 +13,7 @@ pub struct Executor<'source> {
 impl<'source> Executor<'source> {
     pub fn new(decoder: Decoder<'source>) -> Self {
         Self {
+            memory: mem::Memory::new(),
             registers: Registers::new(),
             decoder,
         }
@@ -117,9 +121,12 @@ impl<'source> Executor<'source> {
         let value = match source {
             Operand::Immediate(imm) => *imm,
             Operand::Register(reg) => self.registers.get_reg(reg).into(),
-            Operand::MemoryAddress(_) => todo!(),
+            Operand::MemoryAddress(eac) => {
+                let addr = self.resolve_eac(eac);
+                self.memory.load(addr).into()
+            }
             Operand::ByteImmediate(_) => todo!(),
-            Operand::WordImmediate(_) => todo!(),
+            Operand::WordImmediate(imm) => *imm,
             Operand::InstPtrIncrement(_) => todo!(),
         };
 
@@ -127,7 +134,10 @@ impl<'source> Executor<'source> {
             Operand::Register(reg) => {
                 self.registers.set(reg, value);
             }
-            Operand::MemoryAddress(_) => todo!(),
+            Operand::MemoryAddress(eac) => {
+                let addr = self.resolve_eac(eac);
+                self.memory.store(addr, value)
+            }
             Operand::Immediate(_) => todo!(),
             Operand::ByteImmediate(_) => todo!(),
             Operand::WordImmediate(_) => todo!(),
@@ -152,6 +162,25 @@ impl<'source> Executor<'source> {
             }
             _ => todo!(),
         }
+    }
+
+    fn resolve_eac(&mut self, eac: &EffectiveAddressCalc) -> u16 {
+        let addr = match eac {
+            EffectiveAddressCalc::SingleReg(reg) => {
+                let addr: u16 = self.registers.get_reg(reg).into();
+                addr
+            }
+            EffectiveAddressCalc::SingleRegPlus(reg, disp) => {
+                let addr_base: u16 = self.registers.get_reg(reg).into();
+
+                (addr_base as i16 + disp) as u16
+            }
+            EffectiveAddressCalc::Plus(_, _) => todo!(),
+            EffectiveAddressCalc::PlusConstant(_, _, _) => todo!(),
+            EffectiveAddressCalc::DirectAddress(addr) => *addr,
+        };
+
+        addr
     }
 }
 
@@ -299,5 +328,36 @@ impl Debug for RegistersDiff {
         disp!(flags, "");
 
         Ok(())
+    }
+}
+
+mod mem {
+    use crate::Word;
+
+    const MEMORY_SIZE: usize = 65536;
+
+    pub struct Memory {
+        buffer: [u8; MEMORY_SIZE],
+    }
+
+    impl Memory {
+        pub fn new() -> Self {
+            Self {
+                buffer: [0; MEMORY_SIZE],
+            }
+        }
+
+        pub fn store(&mut self, addr: u16, word: impl Into<Word>) {
+            let addr = addr as usize;
+            let word: Word = word.into();
+
+            self.buffer[addr] = word.second;
+            self.buffer[addr + 1] = word.first;
+        }
+
+        pub fn load(&mut self, addr: u16) -> Word {
+            let addr = addr as usize;
+            Word::new(self.buffer[addr + 1], self.buffer[addr])
+        }
     }
 }
