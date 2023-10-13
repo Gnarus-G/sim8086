@@ -48,3 +48,9 @@ fn conditional_jumps() {
 fn memory_movs() {
     test_with!("memory_mov");
 }
+
+#[test]
+fn memory_add_loop() {
+    test_with!("memory_add_loop");
+    test_with!("add_loop_challenge");
+}

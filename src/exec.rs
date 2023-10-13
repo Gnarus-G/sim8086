@@ -23,7 +23,10 @@ impl<'source> Executor<'source> {
         let value = match operand {
             Operand::Immediate(imm) => *imm,
             Operand::Register(reg) => self.registers.get_reg(reg).into(),
-            Operand::MemoryAddress(_) => todo!(),
+            Operand::MemoryAddress(eac) => {
+                let addr = self.resolve_eac(eac);
+                self.memory.load(addr).into()
+            }
             Operand::ByteImmediate(_) => todo!(),
             Operand::WordImmediate(imm) => *imm,
             Operand::InstPtrIncrement(_) => todo!(),
@@ -101,7 +104,7 @@ impl<'source> Executor<'source> {
             Operand::Register(reg) => {
                 let reg_value = self.registers.get_reg(reg);
                 let dest: u16 = reg_value.into();
-                let result = dest - source_value;
+                let result = dest.wrapping_sub(source_value);
                 let msb_is_1 = (0x8000 & result) != 0;
 
                 self.registers.flags.sign = msb_is_1;
@@ -175,8 +178,18 @@ impl<'source> Executor<'source> {
 
                 (addr_base as i16 + disp) as u16
             }
-            EffectiveAddressCalc::Plus(_, _) => todo!(),
-            EffectiveAddressCalc::PlusConstant(_, _, _) => todo!(),
+            EffectiveAddressCalc::Plus(reg, reg1) => {
+                let x: u16 = self.registers.get_reg(reg).into();
+                let y: u16 = self.registers.get_reg(reg1).into();
+
+                x + y
+            }
+            EffectiveAddressCalc::PlusConstant(reg, reg1, disp) => {
+                let x: u16 = self.registers.get_reg(reg).into();
+                let y: u16 = self.registers.get_reg(reg1).into();
+
+                ((x + y) as i16 + *disp) as u16
+            }
             EffectiveAddressCalc::DirectAddress(addr) => *addr,
         };
 
