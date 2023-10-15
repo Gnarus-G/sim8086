@@ -65,7 +65,12 @@ impl<'source> Executor<'source> {
                 self.registers.flags.sign = msb_is_1;
                 self.registers.flags.zero = result == 0;
             }
-            Operand::MemoryAddress(_) => todo!(),
+            Operand::MemoryAddress(eac) => {
+                let dest: u16 = self.eval_operand(&i.destination).into();
+                let result = dest + source_value;
+                let addr = self.resolve_eac(eac);
+                self.memory.store(addr, result)
+            }
             Operand::Immediate(_) => todo!(),
             Operand::ByteImmediate(_) => todo!(),
             Operand::WordImmediate(_) => todo!(),
@@ -365,6 +370,107 @@ mod mem {
 
         pub fn dump(&self) -> Vec<u8> {
             self.buffer.to_vec()
+        }
+    }
+}
+
+pub mod clock_est {
+    use crate::{mov, Instruction, Opcode, Operand, Register};
+
+    #[derive(Debug)]
+    pub struct ClockEstimate {
+        pub base: usize,
+        pub ea: Option<usize>,
+    }
+
+    impl ClockEstimate {
+        pub fn value(&self) -> usize {
+            self.base + self.ea.unwrap_or_default()
+        }
+    }
+
+    impl From<Instruction> for ClockEstimate {
+        fn from(value: Instruction) -> Self {
+            use Operand as O;
+
+            let mut ea = None;
+
+            let base = match value.opcode {
+                Opcode::Mov(m) => match m {
+                    mov::Mov::RM => match (value.destination, value.source.unwrap()) {
+                        (O::Register(_), O::Register(_)) => 2,
+                        (O::Register(_), O::MemoryAddress(eac)) => {
+                            ea = Some(ea_clock(&eac));
+                            8
+                        }
+                        (O::MemoryAddress(eac), O::Register(_)) => {
+                            ea = Some(ea_clock(&eac));
+                            9
+                        }
+                        operands => todo!("{:?}", operands),
+                    },
+                    mov::Mov::ImmToReg => 4,
+                    mov::Mov::ImmToRegOrMem => todo!(),
+                    mov::Mov::MemToAcc => 10,
+                    mov::Mov::AccToMem => 10,
+                },
+                Opcode::Add(a) => match a {
+                    crate::add::Add::RM => match (value.destination, value.source.unwrap()) {
+                        (O::Register(_), O::Register(_)) => 3,
+                        (O::Register(_), O::MemoryAddress(eac)) => {
+                            ea = Some(ea_clock(&eac));
+                            9
+                        }
+                        (O::MemoryAddress(eac), O::Register(_)) => {
+                            ea = Some(ea_clock(&eac));
+                            16
+                        }
+                        operands => todo!("{:?}", operands),
+                    },
+                    crate::add::Add::ImmToRegOrMem => {
+                        match (value.destination, value.source.unwrap()) {
+                            (O::Register(_), O::WordImmediate(_)) => 4,
+                            operands => todo!("{:?}", operands),
+                        }
+                    }
+                    crate::add::Add::ImmToAcc => todo!(),
+                },
+                Opcode::Sub(_) => todo!(),
+                Opcode::Cmp(_) => todo!(),
+                Opcode::J(_) => todo!(),
+            };
+
+            Self { base, ea }
+        }
+    }
+
+    fn ea_clock(eac: &crate::EffectiveAddressCalc) -> usize {
+        match eac {
+            crate::EffectiveAddressCalc::SingleReg(_) => 5,
+            crate::EffectiveAddressCalc::SingleRegPlus(_, d) => {
+                if *d == 0 {
+                    5
+                } else {
+                    9
+                }
+            }
+            crate::EffectiveAddressCalc::Plus(base, index) => {
+                use Register as R;
+                match (base, index) {
+                    (R::BP, R::DI) | (R::BX, R::SI) => 7,
+                    (R::BP, R::SI) | (R::BX, R::DI) => 8,
+                    _ => unreachable!(),
+                }
+            }
+            crate::EffectiveAddressCalc::PlusConstant(base, index, _) => {
+                use Register as R;
+                match (base, index) {
+                    (R::BP, R::DI) | (R::BX, R::SI) => 11,
+                    (R::BP, R::SI) | (R::BX, R::DI) => 12,
+                    _ => unreachable!(),
+                }
+            }
+            crate::EffectiveAddressCalc::DirectAddress(_) => 6,
         }
     }
 }

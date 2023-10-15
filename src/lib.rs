@@ -25,6 +25,7 @@ impl Display for Instruction {
     }
 }
 
+#[derive(Debug)]
 pub enum Operand {
     Register(Register),
     MemoryAddress(EffectiveAddressCalc),
@@ -34,6 +35,7 @@ pub enum Operand {
     InstPtrIncrement(i8),
 }
 
+#[derive(Debug)]
 pub enum EffectiveAddressCalc {
     SingleReg(Register),
     SingleRegPlus(Register, i16),
